@@ -4,6 +4,7 @@ import android.provider.ContactsContract.CommonDataKinds.Im
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -37,6 +40,10 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +53,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -144,6 +152,43 @@ fun MyorderItem(){
             }
 
         }
+}
+
+
+
+@Composable
+fun OrderSuccessPage(){
+    Scaffold (
+        bottomBar = {
+            Box(modifier = Modifier.wrapContentSize().background(color = colorResource(R.color.yellow_base))) {
+                BottomBar()
+            }
+        }
+    ){
+        Box(
+            modifier = Modifier.padding(it).fillMaxSize().background(color = colorResource(R.color.yellow_base)),
+            contentAlignment = Alignment.Center
+        ){
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(15.dp),
+                modifier = Modifier.padding(horizontal = 50.dp)
+            ){
+                Image(
+                    painter = painterResource(R.drawable.order_success),
+                    contentDescription = null,
+                    modifier = Modifier.size(140.dp)
+                )
+                Text("Order Confirmed!", fontSize = 24.sp, fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown))
+                Text("Your order has been placed succesfully", fontSize = 16.sp, fontWeight = FontWeight.W600,color = colorResource(R.color.font_brown))
+                Text("Delivery by Thu, 29th, 4:00 PM", fontSize = 16.sp, fontWeight = FontWeight.W400,modifier =Modifier.padding(top =10.dp),color = colorResource(R.color.font_brown))
+                Text("Track my Order", fontSize = 16.sp, fontWeight = FontWeight.W700,modifier =Modifier.padding(top =10.dp),color = colorResource(R.color.orange_base))
+                Text("If you have any questions, please reach out directly to our customer support", fontSize = 16.sp, fontWeight = FontWeight.W400,modifier =Modifier.padding(top =100.dp),color = colorResource(R.color.font_brown))
+
+            }
+        }
+    }
+
 }
 
 @Composable
@@ -399,8 +444,353 @@ fun MyOrders(){
         }
     }
 }
-
 @Preview
+@Composable
+fun  AdvertiseMentPage(){
+    Scaffold (
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .background(
+                        color = colorResource(R.color.yellow_base)
+                    )
+            ) {
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(start = 35.dp)
+                        .padding(vertical = 40.dp)
+                ){
+                    Icon(
+                        Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = colorResource(R.color.orange_base)
+                    )
+
+                    Text(
+                        "Pizza with Pepperoni and Cheese",
+                        fontSize = 14.sp,
+                        color = colorResource(R.color.font_brown),
+                        fontWeight = FontWeight.W700,
+                        modifier = Modifier
+                            .padding(horizontal = 5.dp)
+                            .wrapContentWidth(),
+
+                        )
+                    Image(
+                        painter = painterResource(R.drawable.closed_heart),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 10.dp)
+                            .width(30.dp)
+                            .height(16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(color = colorResource(R.color.orange_base)),
+                        contentAlignment = Alignment.Center
+
+                    ) {
+                        Text(
+                            "5 ⭐",
+                            color = colorResource(R.color.white),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+            }
+        },
+        bottomBar = {
+            BottomBar()
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(it)
+                .fillMaxSize()
+                .background(colorResource(R.color.yellow_base))
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .background(Color.White)
+            ,
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.pizza),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(20.dp)),
+                    contentScale = ContentScale.FillBounds
+                )
+                Spacer(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "$14.00",
+                        color = colorResource(R.color.orange_base),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.W600
+                    )
+                    Text(
+                        "$20.00",
+                        color = colorResource(R.color.yellow_base),
+                        textDecoration = TextDecoration.LineThrough,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W600
+                    )
+                }
+                Spacer(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
+                Text(
+                    "Lorem ipsum dolor sit amet",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown)
+                )
+                Text(
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W400, color = colorResource(R.color.font_brown)
+                )
+                Text(
+                    "Personal Portion",
+                    modifier = Modifier.padding(top = 20.dp),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown)
+                )
+
+
+                val pizzaSizes = listOf("Small (4 slides)", "Medium (8 slides)", "Jumbo (10 slides)")
+                var selectedSize by remember { mutableStateOf(pizzaSizes[0]) }
+
+                    pizzaSizes.forEach { size ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(30.dp)
+                                .clickable { selectedSize = size }
+
+                        ) {
+                            Text(
+                                text = size,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            RadioButton(
+                                selected = (size == selectedSize),
+                                onClick = { selectedSize = size },
+                                colors = RadioButtonDefaults.colors(selectedColor = colorResource(R.color.orange_base), unselectedColor = colorResource(R.color.orange_base))
+                            )
+
+                        }
+
+
+                }
+                Box(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ){
+                    Text("Add to Cart", fontWeight = FontWeight.W600, color = Color.White,modifier = Modifier.clip(
+                        RoundedCornerShape(12.dp)
+                    ).background(color = colorResource(R.color.orange_base)).padding(horizontal = 16.dp, vertical = 10.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PaymentPage(){
+    Scaffold (
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .background(
+                        color = colorResource(R.color.yellow_base)
+                    )
+            ) {
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(start = 35.dp)
+                        .padding(vertical = 40.dp)
+                ){
+                    Icon(
+                        Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = colorResource(R.color.orange_base)
+                    )
+
+                    Text(
+                        "Payment",
+                        fontSize = 28.sp,
+                        color = colorResource(R.color.font2),
+                        fontWeight = FontWeight.W700,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp)
+                            .fillMaxWidth(),
+
+                    )
+                }
+
+            }
+        },
+        bottomBar = {
+            BottomBar()
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(it)
+                .fillMaxSize()
+                .background(colorResource(R.color.yellow_base))
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .background(Color.White)
+            ,
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ){
+                    Text("Shipping Address", fontSize = 20.sp, color = colorResource(R.color.font_brown))
+                    Icon(
+                        Icons.Filled.Create,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = colorResource(R.color.orange_base)
+                    )
+                }
+                Box(
+                    modifier = Modifier.height(35.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colorResource(R.color.yellow_2)),
+                    contentAlignment = Alignment.CenterStart
+                ){
+                    Text("778 Locust View Drive Oaklanda, CA", fontSize = 16.sp, color = colorResource(R.color.font_brown),modifier = Modifier.padding(start = 10.dp))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top =20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Order Summary",
+                        color = colorResource(R.color.font_brown),
+                        fontWeight = FontWeight.W600
+                    )
+                    Spacer(modifier =Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .wrapContentWidth()
+                            .wrapContentHeight()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(color = colorResource(R.color.orange_2))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+
+                    ){
+                        Text(
+                            "Edit",
+                            fontSize = 12.sp,
+                            color = colorResource(R.color.orange_base)
+                        )
+                    }
+
+                }
+
+                for(i in 0..2) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Strawberry Shake", color = colorResource(R.color.font_brown))
+                        Text("2 items", color = colorResource(R.color.orange_base))
+                        if(i == 2){
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text("$40.00", fontSize = 20.sp, color = colorResource(R.color.font_brown), fontWeight = FontWeight.W700)
+
+                        }
+                    }
+
+                }
+
+
+                Spacer(modifier = Modifier
+                    .padding(top = 10.dp)
+                    .height(1.dp)
+                    .fillMaxWidth()
+                    .background(Color(0xffffd8c7)))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ){
+                    Text(
+                        "Delivery Time",
+                        color = colorResource(R.color.font_brown),
+                        fontWeight = FontWeight.W600
+                    )
+                    Row {
+                        Text(
+                            "Estimated Delivery",
+                            color = colorResource(R.color.font_brown),
+                            fontWeight = FontWeight.W400
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            "25 mins",
+                            color = colorResource(R.color.orange_base),
+                            fontWeight = FontWeight.W600,
+                            fontSize = 20.sp
+                        )
+
+                    }
+                    Spacer(modifier = Modifier
+                        .padding(top = 10.dp)
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7)))
+
+                    Box(
+                        modifier = Modifier.padding(top =50.dp)
+                            .wrapContentWidth()
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(color = colorResource(R.color.orange_2))
+                            .padding(horizontal = 15.dp)
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ){
+                        Text("Pay Now", color = colorResource(R.color.orange_base))
+                    }
+                }
+
+            }
+
+
+
+        }
+    }
+}
+
 @Composable
 fun OrderConfirmPage(){
     Scaffold (
