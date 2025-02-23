@@ -8,6 +8,10 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.0"
 composeBom = "2024.04.01"
+navigationRuntimeAndroid = "2.9.0-alpha06"
+navigationCompose = "2.8.7"
+volley = "1.2.1"
+runner = "1.6.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -24,6 +28,15 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-navigation-runtime-android = { group = "androidx.navigation", name = "navigation-runtime-android", version.ref = "navigationRuntimeAndroid" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-retrofit2 = { group = "com.squareup.retrofit2", name = "retrofit", version = "2.9.0" }
+androidx-convertor-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version = "2.9.0" }
+androidx-coil-compose= { group = "io.coil-kt", name = "coil-compose", version = "2.5.0" }
+volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
+androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+splash-core = {group = "androidx.core", name = "core-splashscreen", version = "1.0.1"}
+kotlinx-serialization = {group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.6.0"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,10 +1,18 @@
 package com.example.fooddelivery.Home
 
-import android.provider.ContactsContract.CommonDataKinds.Im
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +31,8 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +41,8 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -37,29 +50,48 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.fooddelivery.Home.model.MenuItem
+
 import com.example.fooddelivery.Home.model.NavigationDrawerItem
+import com.example.fooddelivery.MainViewmodel
 import com.example.fooddelivery.R
 import com.example.fooddelivery.authentication.ui.BottomBar
+import com.google.gson.Gson
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import kotlin.math.roundToInt
 
 
 @Composable
@@ -114,7 +146,7 @@ fun MyorderItem(){
             Row(modifier = Modifier.padding(top =10.dp)){
                 Text("Strawberry shake", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W600)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("$20.00", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
+                Text("₹20.00", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
             }
             Row(modifier = Modifier.padding(top =8.dp)){
                 Text("29 Nov, 01:20 pm ", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W400)
@@ -160,13 +192,18 @@ fun MyorderItem(){
 fun OrderSuccessPage(){
     Scaffold (
         bottomBar = {
-            Box(modifier = Modifier.wrapContentSize().background(color = colorResource(R.color.yellow_base))) {
+            Box(modifier = Modifier
+                .wrapContentSize()
+                .background(color = colorResource(R.color.yellow_base))) {
                 BottomBar()
             }
         }
     ){
         Box(
-            modifier = Modifier.padding(it).fillMaxSize().background(color = colorResource(R.color.yellow_base)),
+            modifier = Modifier
+                .padding(it)
+                .fillMaxSize()
+                .background(color = colorResource(R.color.yellow_base)),
             contentAlignment = Alignment.Center
         ){
             Column(
@@ -191,6 +228,7 @@ fun OrderSuccessPage(){
 
 }
 
+
 @Composable
 fun OrderConfirmItem(){
     Row(
@@ -198,13 +236,15 @@ fun OrderConfirmItem(){
             .fillMaxWidth()
             .wrapContentHeight()
             .background(Color.White)
-            .padding(top =10.dp)
+            .padding(top = 10.dp)
 
     ){
         Image(
             painter = painterResource(R.drawable.strawberry),
             contentDescription = null,
-            modifier = Modifier .padding(top = 16.dp, bottom = 16.dp).size(80.dp, 100.dp)
+            modifier = Modifier
+                .padding(top = 16.dp, bottom = 16.dp)
+                .size(80.dp, 100.dp)
         )
 
         Column(
@@ -217,7 +257,7 @@ fun OrderConfirmItem(){
             Row(modifier = Modifier.padding(top =10.dp)){
                 Text("Strawberry shake", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W600)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("$20.00", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
+                Text("₹20.00", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
             }
             Row(modifier = Modifier.padding(top =8.dp)){
                 Text("29 Nov, 01:20 pm ", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W400)
@@ -310,9 +350,6 @@ fun MyOrders(){
 
             }
         },
-        bottomBar = {
-            BottomBar()
-        }
     ) {
         Column(
             modifier = Modifier
@@ -444,9 +481,11 @@ fun MyOrders(){
         }
     }
 }
-@Preview
+
+
 @Composable
-fun  AdvertiseMentPage(){
+fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
+    val baseUrl = viewmodel.homeData.value?.base_image_url
     Scaffold (
         topBar = {
             Column(
@@ -470,7 +509,7 @@ fun  AdvertiseMentPage(){
                     )
 
                     Text(
-                        "Pizza with Pepperoni and Cheese",
+                        menuItem?.name ?:"",
                         fontSize = 14.sp,
                         color = colorResource(R.color.font_brown),
                         fontWeight = FontWeight.W700,
@@ -504,9 +543,7 @@ fun  AdvertiseMentPage(){
 
             }
         },
-        bottomBar = {
-            BottomBar()
-        }
+
     ) {
         Column(
             modifier = Modifier
@@ -522,9 +559,10 @@ fun  AdvertiseMentPage(){
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Image(
-                    painter = painterResource(R.drawable.pizza),
+                    painter = if(menuItem?.image_url.isNullOrEmpty().not()) rememberAsyncImagePainter(baseUrl+ menuItem?.image_url) else painterResource(R.drawable.pizza) ,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .height(200.dp)
                         .clip(RoundedCornerShape(20.dp)),
                     contentScale = ContentScale.FillBounds
@@ -541,13 +579,13 @@ fun  AdvertiseMentPage(){
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "$14.00",
+                        "₹${menuItem?.price}",
                         color = colorResource(R.color.orange_base),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.W600
                     )
                     Text(
-                        "$20.00",
+                        "₹${ (menuItem?.price ?:0) + 20}",
                         color = colorResource(R.color.yellow_base),
                         textDecoration = TextDecoration.LineThrough,
                         fontSize = 16.sp,
@@ -562,12 +600,12 @@ fun  AdvertiseMentPage(){
                         .background(Color(0xffffd8c7))
                 )
                 Text(
-                    "Lorem ipsum dolor sit amet",
+                    menuItem?.name ?:"",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown)
                 )
                 Text(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.",
+                    menuItem?.description?:"",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W400, color = colorResource(R.color.font_brown)
                 )
@@ -606,12 +644,17 @@ fun  AdvertiseMentPage(){
 
                 }
                 Box(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ){
-                    Text("Add to Cart", fontWeight = FontWeight.W600, color = Color.White,modifier = Modifier.clip(
-                        RoundedCornerShape(12.dp)
-                    ).background(color = colorResource(R.color.orange_base)).padding(horizontal = 16.dp, vertical = 10.dp))
+                    Text("Add to Cart", fontWeight = FontWeight.W600, color = Color.White,modifier = Modifier
+                        .clip(
+                            RoundedCornerShape(12.dp)
+                        )
+                        .background(color = colorResource(R.color.orange_base))
+                        .padding(horizontal = 16.dp, vertical = 10.dp))
                 }
             }
         }
@@ -686,13 +729,19 @@ fun PaymentPage(){
                     )
                 }
                 Box(
-                    modifier = Modifier.height(35.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colorResource(R.color.yellow_2)),
+                    modifier = Modifier
+                        .height(35.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colorResource(R.color.yellow_2)),
                     contentAlignment = Alignment.CenterStart
                 ){
                     Text("778 Locust View Drive Oaklanda, CA", fontSize = 16.sp, color = colorResource(R.color.font_brown),modifier = Modifier.padding(start = 10.dp))
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top =20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -727,7 +776,7 @@ fun PaymentPage(){
                         Text("2 items", color = colorResource(R.color.orange_base))
                         if(i == 2){
                             Spacer(modifier = Modifier.weight(1f))
-                            Text("$40.00", fontSize = 20.sp, color = colorResource(R.color.font_brown), fontWeight = FontWeight.W700)
+                            Text("₹40.00", fontSize = 20.sp, color = colorResource(R.color.font_brown), fontWeight = FontWeight.W700)
 
                         }
                     }
@@ -770,7 +819,8 @@ fun PaymentPage(){
                         .background(Color(0xffffd8c7)))
 
                     Box(
-                        modifier = Modifier.padding(top =50.dp)
+                        modifier = Modifier
+                            .padding(top = 50.dp)
                             .wrapContentWidth()
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
@@ -859,7 +909,11 @@ fun OrderConfirmPage(){
                     )
                 }
                 Box(
-                    modifier = Modifier.height(35.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colorResource(R.color.yellow_2)),
+                    modifier = Modifier
+                        .height(35.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colorResource(R.color.yellow_2)),
                     contentAlignment = Alignment.CenterStart
                 ){
                     Text("778 Locust View Drive Oaklanda, CA", fontSize = 16.sp, color = colorResource(R.color.font_brown),modifier = Modifier.padding(start = 10.dp))
@@ -912,55 +966,53 @@ fun OrderConfirmPage(){
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BestSellersPage(){
-        Scaffold (
-            topBar = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .background(
-                            color = colorResource(R.color.yellow_base)
-                        )
-                ) {
-                    Row (
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .padding(start = 35.dp)
-                            .padding(vertical = 40.dp)
-                    ){
-                        Icon(
-                            Icons.Filled.KeyboardArrowLeft,
-                            contentDescription = null,
-                            tint = colorResource(R.color.orange_base)
-                        )
-
-                        Text(
-                            "Best Sellers",
-                            fontSize = 28.sp,
-                            color = colorResource(R.color.font2),
-                            fontWeight = FontWeight.W700,
-                            modifier = Modifier
-                                .padding(horizontal = 35.dp)
-
-                        )
-                    }
-
-                }
-            },
-            bottomBar = {
-                BottomBar()
-            }
-        ) {
+fun BestSellersPage(viewmodel: MainViewmodel) {
+    BottomSheetScaffold(
+        content = {
             Column(
                 modifier = Modifier
-                    .padding(it)
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .background(
+                        color = colorResource(R.color.yellow_base)
+                    )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(start = 35.dp)
+                        .padding(vertical = 40.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = colorResource(R.color.orange_base)
+                    )
+
+                    Text(
+                        "Best Sellers",
+                        fontSize = 28.sp,
+                        color = colorResource(R.color.font2),
+                        fontWeight = FontWeight.W700,
+                        modifier = Modifier
+                            .padding(horizontal = 35.dp)
+
+                    )
+                }
+
+            }
+        },
+        sheetPeekHeight = 720.dp,
+        sheetDragHandle = null,
+        sheetContent = {
+            Column(
+                modifier = Modifier
                     .fillMaxSize()
                     .background(colorResource(R.color.yellow_base))
                     .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
-                    .background(Color.White)
-                ,
+                    .background(Color.White),
             ) {
                 Column(
                     modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp)
@@ -972,23 +1024,28 @@ fun BestSellersPage(){
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
+                    val data: List<MenuItem> =
+                        viewmodel.homeData.value?.data?.restaurant?.menu?.best_sellers ?: listOf()
+                    val baseUrl = viewmodel.homeData.value?.base_image_url
                     LazyVerticalGrid(
-                        modifier = Modifier.padding(vertical =20.dp,),
+                        modifier = Modifier
+                            .padding(vertical = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(15.dp),
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         columns = GridCells.Fixed(2),
                     ) {
-                        items(10) {
-                            BestSellersItem()
+                            data.forEach {
+                                item {
+                                    BestSellersItem(baseUrl ?: "", it)
+                                }
+                            }
+
                         }
                     }
                 }
 
-
-
-            }
-        }
-    }
+        })
+}
 
 @Composable
 fun FavoritesPage(){
@@ -1027,9 +1084,6 @@ fun FavoritesPage(){
 
             }
         },
-        bottomBar = {
-            BottomBar()
-        }
     ) {
         Column(
             modifier = Modifier
@@ -1126,7 +1180,7 @@ fun FavoriteItem(){
 }
 
 @Composable
-fun BestSellersItem(){
+fun BestSellersItem(baseUrl :String,item: MenuItem?) {
     Column(
         modifier = Modifier
             .width(150.dp)
@@ -1140,8 +1194,9 @@ fun BestSellersItem(){
         ) {
 
             Image(
-                painter = painterResource(R.drawable.burger),
+                painter = rememberAsyncImagePainter(baseUrl +item?.image_url),
                 contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.FillBounds
             )
             Row(
@@ -1183,16 +1238,20 @@ fun BestSellersItem(){
                     modifier = Modifier
                         .padding(bottom = 12.dp)
                         .width(40.dp)
-                        .height(16.dp)
+                        .height(20.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(color = colorResource(R.color.orange_base)),
+                        .background(color = colorResource(R.color.orange_base))
+                        .padding(horizontal = 4.dp)
+                        .padding(bottom = 4.dp),
                     contentAlignment = Alignment.Center
 
                 ) {
                     Text(
-                        "$103.0",
+                        "₹ ${item?.price}",
                         color = colorResource(R.color.white),
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        modifier =Modifier.fillMaxSize(),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1203,25 +1262,30 @@ fun BestSellersItem(){
             modifier = Modifier.padding(top = 16.dp)
         ) {
             Text(
-                "Chicken Burger",
+                item?.name ?:"",
                 fontSize = 16.sp,
                 color = colorResource(R.color.orange_base),
                 textAlign = TextAlign.Center,
+                modifier = Modifier.weight(0.8f)
 
                 )
             Box(
                 modifier = Modifier
-                    .width(30.dp)
-                    .height(16.dp)
+                    .width(32.dp)
+                    .wrapContentHeight()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(color = colorResource(R.color.orange_base)),
-                contentAlignment = Alignment.Center
+                    .background(color = colorResource(R.color.orange_base))
+                    .padding(vertical = 4.dp, horizontal = 4.dp)
+                    .weight(0.2f),
+                contentAlignment = Alignment.CenterStart
 
             ) {
                 Text(
                     "5 ⭐",
                     color = colorResource(R.color.white),
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    modifier = Modifier.fillMaxSize(),
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -1231,7 +1295,7 @@ fun BestSellersItem(){
             modifier = Modifier.padding( start = 10.dp, top = 5.dp)
         ) {
             Text(
-                "Lorem ipsum dolor sit amet, consectetur.",
+                item?.description ?:"",
                 fontSize = 12.sp,
                 color = colorResource(R.color.font_brown),
                 modifier = Modifier.weight(0.8f)
@@ -1333,6 +1397,7 @@ fun FaqPage(){
         )
 }
 }
+
 @Composable
 fun ContactUsPage(){
     Column(
@@ -1431,9 +1496,6 @@ fun HelpCenter(){
 
             }
         },
-        bottomBar = {
-            BottomBar()
-        }
     ) {
         Column(
             modifier = Modifier
@@ -1519,7 +1581,8 @@ fun NotificationNavigationDrawer(){
                 RoundedCornerShape(topStart = 100.dp, bottomStart = 100.dp)
             )
             .background(color = colorResource(R.color.orange_base))
-            .padding(35.dp),
+            .padding(25.dp)
+            .padding(end = 50.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         val noficationItems  = listOf(
@@ -1587,11 +1650,13 @@ fun ProfileNavigationDrawer(){
                 RoundedCornerShape(topStart = 100.dp, bottomStart = 100.dp)
             )
             .background(color = colorResource(R.color.orange_base))
-            .padding(35.dp),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
+            .padding(25.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ){
-        Column{
-            Text("Bathri Narayanan", fontSize = 33.sp, color = colorResource(R.color.font2))
+        Column(
+            modifier = Modifier.padding(start = 16.dp)
+        ){
+            Text("Bathri Narayanan", fontSize = 24.sp, color = colorResource(R.color.font2))
             Text("pathrinarayananmdu@gmail.com", fontSize = 16.sp, color = colorResource(R.color.yellow_2))
         }
         val profileItems  = listOf(
@@ -1617,16 +1682,73 @@ fun ProfileNavigationDrawer(){
                 )
             }
         }
-        Box(modifier = Modifier.padding(top =4.dp))
+        Spacer(modifier = Modifier.weight(1f))
         NavigationItem(NavigationDrawerItem(R.drawable.log_out_icon,"Log Out"),24)
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
 
 @Composable
-fun HomeCV (){
-    Scaffold (
-        topBar = {
+fun MainPage(navController: NavController, viewmodel: MainViewmodel) {
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
+    val coroutineScope = rememberCoroutineScope() // ✅ Remember a coroutine scope
+
+    Scaffold(
+        bottomBar = {
+            BottomBar { index ->
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(index) // ✅ Smooth scrolling
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(modifier = Modifier
+            .padding(paddingValues)
+            .fillMaxSize()) {
+            HorizontalPager(
+                modifier = Modifier.wrapContentSize(),
+                state = pagerState
+            ) { page ->
+                when (page) {
+                    0 -> HomeCV(viewmodel,navController)
+                    1 -> BestSellersPage(viewmodel)
+                    2 -> FavoritesPage()
+                    3 -> MyOrders()
+                    4 -> HelpCenter()
+                }
+            }
+        }
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .collect { page ->
+                when (page) {
+                    0 -> navController.navigate("home")
+                    1 -> navController.navigate("bestSellers")
+                    2 -> navController.navigate("favorites")
+                    3 -> navController.navigate("myOrders")
+                    4 -> navController.navigate("help")
+                }
+            }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
+    var profileVisible by remember { mutableStateOf(false) }
+    var isProfile by remember { mutableStateOf(false) }
+    var notifyVisible by remember { mutableStateOf(false) }
+    var isNotify by remember { mutableStateOf(false) }
+    val bottomSheetScaffoldState = rememberBottomSheetScaffoldState()
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val sheetWidth = screenWidth / 2
+    val offsetX = remember { Animatable(sheetWidth.value) }
+    BottomSheetScaffold  (
+        scaffoldState = bottomSheetScaffoldState,
+        content = {
             Column(
                 modifier = Modifier
                     .wrapContentHeight()
@@ -1641,7 +1763,6 @@ fun HomeCV (){
                         .padding(top = 30.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    //SEARCH BOX
                     Box(
                         modifier = Modifier
                             .height(30.dp)
@@ -1679,15 +1800,29 @@ fun HomeCV (){
                     ) {
                         Image(
                             painter = painterResource(R.drawable.cart_icon),
-                            contentDescription = null
+                            contentDescription = null,
+                            modifier = Modifier.clickable (
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ){
+
+                            }
                         )
                     }
+
                     Box(
                         modifier = Modifier
-                            .padding(start = 8.dp)
+                            .padding(start = 16.dp)
                             .size(26.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White),
+                            .background(Color.White)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                notifyVisible = true
+                                isNotify = true
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
@@ -1697,10 +1832,16 @@ fun HomeCV (){
                     }
                     Box(
                         modifier = Modifier
-                            .padding(start = 8.dp)
+                            .padding(start = 16.dp)
                             .size(26.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White),
+                            .background(Color.White)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                profileVisible = true;isProfile = true
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
@@ -1732,13 +1873,9 @@ fun HomeCV (){
 
             }
         },
-        bottomBar = {
-                BottomBar()
-        }
-    ) {
+    sheetContent = {
             Column(
                 modifier = Modifier
-                    .padding(it)
                     .fillMaxSize()
                     .background(colorResource(R.color.yellow_base))
                     .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
@@ -1747,11 +1884,12 @@ fun HomeCV (){
                 ,
             ) {
                 Column(
-                    modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp)
+                    modifier = Modifier.padding(top = 35.dp)
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 35.dp, end = 35.dp)
                     ) {
                         FoodItems(R.drawable.snacks_icon, "Snacks")
                         FoodItems(R.drawable.meals_icon, "Meals")
@@ -1773,6 +1911,7 @@ fun HomeCV (){
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
+                            .padding(start = 35.dp, end = 35.dp)
                     ) {
                         Text(
                             "Best Sellers",
@@ -1783,7 +1922,13 @@ fun HomeCV (){
                         Spacer(modifier = Modifier.weight(1f))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.clickable (
+                                indication =  null, 
+                                interactionSource = remember { MutableInteractionSource() }
+                            ){
+                                navController.navigate("bestSellers")
+                            }
                         ) {
                             Text(
                                 "View All",
@@ -1801,101 +1946,33 @@ fun HomeCV (){
                     Row(
                         modifier = Modifier
                             .padding(top = 14.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(15.dp)
                     ) {
-                        for (i in 1..4)
+                        val bestSellers =viewmodel.homeData.value?.data?.restaurant?.menu?.best_sellers?.take(4)
+                        val baseUrl = viewmodel.homeData.value?.base_image_url
+                        val bestSellersSize = bestSellers?.size ?:0
+                        bestSellers?.forEachIndexed {index, it->
                             Box(
                                 modifier = Modifier
-                                    .height(108.dp)
-                                    .width(70.dp),
-                                contentAlignment = Alignment.BottomEnd
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.cake),
-                                    contentDescription = null,
-                                    modifier = Modifier.matchParentSize()
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .padding(bottom = 12.dp)
-                                        .width(40.dp)
-                                        .height(16.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(color = colorResource(R.color.orange_base)),
-                                    contentAlignment = Alignment.Center
-
-                                ) {
-                                    Text(
-                                        "$103.0",
-                                        color = colorResource(R.color.white),
-                                        fontSize = 10.sp
+                                    .padding(
+                                        start = if (index == 0) 35.dp else 0.dp,
+                                        end = if (index == bestSellersSize - 1) 35.dp else 0.dp
                                     )
-                                }
-                            }
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 20.dp)
-                            .height(120.dp)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(color = colorResource(R.color.orange_base))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(0.5f)
-                                .padding(start = 16.dp, top = 20.dp),
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text(
-                                "Experience our delicious new dish",
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                "30% OFF",
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 32.sp
-                            )
-                        }
-                        Box(
-                            modifier = Modifier.weight(0.5f)
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.pizza),
-                                contentDescription = null,
-                                contentScale = ContentScale.FillBounds
-                            )
-                        }
-                    }
-                    Text(
-                        "Recommend",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.W600,
-                        color = colorResource(R.color.font_brown),
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val imgs = listOf(R.drawable.burger, R.drawable.dish)
-                        for (img in imgs)
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 16.dp)
-                                    .height(140.dp)
-                                    .width(160.dp),
+                                    .height(108.dp)
+                                    .width(108.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        val gson = Gson()
+                                        val data =gson.toJson(it)
+                                        val encodedData = URLEncoder.encode(data, StandardCharsets.UTF_8.toString())
+                                        navController.navigate("details/${encodedData}")
+                                    },
                                 contentAlignment = Alignment.BottomEnd
                             ) {
                                 Image(
-                                    painter = painterResource(img),
+                                    rememberAsyncImagePainter(baseUrl + it?.image_url),
                                     contentDescription = null,
                                     modifier = Modifier.matchParentSize(),
                                     contentScale = ContentScale.FillBounds
@@ -1904,28 +1981,215 @@ fun HomeCV (){
                                     modifier = Modifier
                                         .padding(bottom = 12.dp)
                                         .width(40.dp)
-                                        .height(16.dp)
+                                        .height(20.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(color = colorResource(R.color.orange_base)),
+                                        .background(color = colorResource(R.color.orange_base))
+                                        .padding(horizontal = 4.dp)
+                                        .padding(bottom = 4.dp),
                                     contentAlignment = Alignment.Center
 
                                 ) {
                                     Text(
-                                        "$103.0",
+                                        "₹ ${it?.price}",
                                         color = colorResource(R.color.white),
-                                        fontSize = 10.sp
+                                        fontSize = 10.sp,
+                                        modifier =Modifier.fillMaxSize(),
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    CarouselSection(viewmodel)
+                    Text(
+                        "Recommended",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W600,
+                        color = colorResource(R.color.font_brown),
+                        modifier = Modifier.padding(top = 16.dp, start = 35.dp, end = 35.dp)
+                    )
+                    LazyVerticalGrid(
+                        modifier = Modifier
+                            .padding(horizontal = 35.dp)
+                            .fillMaxWidth()
+                            .height(320.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        columns = GridCells.Fixed(2)
+                    ) {
+                        val recommened =
+                            viewmodel.homeData.value?.data?.restaurant?.menu?.recommended
+                        val baseUrl = viewmodel.homeData.value?.base_image_url
+                        recommened?.drop(4)?.forEach {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(top = 16.dp)
+                                        .height(140.dp)
+                                        .width(160.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.BottomEnd
+                                ) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(baseUrl + it.image_url),
+                                        contentDescription = null,
+                                        modifier = Modifier.matchParentSize(),
+                                        contentScale = ContentScale.FillBounds
+                                    )
+
+                                    Box(
+                                        contentAlignment = Alignment.TopCenter,
+                                        modifier = Modifier
+                                            .padding(bottom = 12.dp)
+                                            .width(40.dp)
+                                            .height(16.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(colorResource(R.color.orange_base))
+                                    ) {
+                                        Text(
+                                            "₹ ${it.price}",
+                                            color = colorResource(R.color.white),
+                                            fontSize = 10.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+
+                                }
+
+                            }
+                        }
                     }
 
                 }
             }
 
+    },
+        sheetPeekHeight = 670.dp,
+        sheetDragHandle = null,
+        sheetContentColor = colorResource(R.color.yellow_base),
+        containerColor = colorResource(R.color.yellow_base),
+        contentColor = colorResource(R.color.yellow_base),
+        sheetContainerColor = colorResource(R.color.yellow_base)
+        )
+    AnimatedVisibility(
+        modifier = Modifier.fillMaxSize(),
+        visible = (profileVisible && isProfile)  || (isNotify && notifyVisible),
+        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(sheetWidth)
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .background(Color.Transparent)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX.value > sheetWidth.value * 0.5f) {
+                                notifyVisible = false
+                                isNotify = false
+                                profileVisible = false
+                                isProfile = false
+                            } else {
+                                viewmodel.viewModelScope.launch {
+
+                                    offsetX.animateTo(0f)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            viewmodel.viewModelScope.launch {
+                                offsetX.snapTo(
+                                    (offsetX.value + dragAmount).coerceIn(
+                                        0f,
+                                        sheetWidth.value
+                                    )
+                                )
+                            }
+                        }
+                    )
+                }
+        ) {
+            if(isNotify)
+                 NotificationNavigationDrawer()
+            if(isProfile)
+                ProfileNavigationDrawer()
+            }
     }
     }
 
 
+
+@Composable
+fun CarouselSection(viewmodel: MainViewmodel) {
+
+    val data = viewmodel.homeData.value?.data?.restaurant?.menu?.advertise
+    val baseUrl = viewmodel.homeData.value?.base_image_url
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = {maxOf(1,data?.size  ?:0)})
+    LaunchedEffect(data) {
+
+            if (data?.isEmpty()?.not() == true) {
+                while(isActive) {
+                val nextPage = (pagerState.currentPage + 1) % (data?.size ?: 1)
+                pagerState.animateScrollToPage(nextPage)
+                delay(1500)
+            }
+        }
+
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp)
+        ) { page ->
+            Row(
+                modifier = Modifier
+                    .padding(top = 20.dp, start = 35.dp, end = 35.dp)
+                    .height(120.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(color = colorResource(R.color.orange_base))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .padding(start = 16.dp, top = 16.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        data?.get(page)?.tagline ?:"",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        data?.get(page)?.offer ?:"",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Box(
+                    modifier = Modifier.weight(0.5f)
+                ) {
+                    Image(
+                        painter = rememberAsyncImagePainter(baseUrl + data?.get(page)?.image_url),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                }
+            }
+        }
+
+    }
+}
 
 @Composable
 fun FoodItems(@DrawableRes img :Int, name :String){
@@ -1954,3 +2218,28 @@ fun FoodItems(@DrawableRes img :Int, name :String){
         )
     }
 }
+
+@Composable
+fun HomeSplashScreen(navController: NavController, viewmodel: MainViewmodel) {
+    LaunchedEffect(viewmodel.homeData.value) {
+        if(viewmodel.homeData.value!=null) {
+            navController.navigate("home"){
+                popUpTo("splash"){inclusive= true}
+            }
+        }
+
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+
+            Image(painter = painterResource(R.drawable.soru_time), contentDescription = "Logo",
+                modifier = Modifier.size(450.dp),
+                contentScale = ContentScale.FillBounds)
+        }
+    }
+

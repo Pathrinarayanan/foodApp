@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.fooddelivery.R
 
 
@@ -131,7 +132,7 @@ fun OnBoard(
 }
 @Preview
 @Composable
-fun OnBoardingPage(){
+fun OnBoardingPage(navController: NavController){
     val pages = 3
     var currentIndex by remember { mutableStateOf(0) }
     val bgs = listOf( R.drawable.onboarding1,R.drawable.onboarding2_bg, R.drawable.onboarding3_bg)
@@ -156,8 +157,12 @@ fun OnBoardingPage(){
             currentIndex,
             ctaTexts[currentIndex],
             goNextPage = {
+                if(currentIndex == pages -1){
+                    navController.navigate("home")
+                }
                 if( currentIndex <pages-1)
                     currentIndex+=1
+
             }
         )
 

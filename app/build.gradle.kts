@@ -1,12 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-parcelize")
+    kotlin("plugin.serialization") version "1.9.20"
 }
+
 
 android {
     namespace = "com.example.fooddelivery"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "com.example.fooddelivery"
         minSdk = 24
@@ -47,6 +49,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
 }
 
 dependencies {
@@ -59,6 +62,15 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.runtime.android)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.retrofit2)
+    implementation(libs.androidx.convertor.gson)
+    implementation(libs.androidx.coil.compose)
+    implementation(libs.volley)
+    implementation(libs.androidx.runner)
+    implementation(libs.splash.core)
+    implementation(libs.kotlinx.serialization)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
