@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,19 +37,20 @@ import com.example.fooddelivery.authentication.ui.BottomBar
 import com.example.fooddelivery.authentication.ui.Login
 import com.example.fooddelivery.onboarding.ui.OnBoardingPage
 import com.example.fooddelivery.ui.theme.FoodDeliveryTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private lateinit var viewmodel: MainViewmodel
+     val  viewmodel: MainViewmodel by viewModels()
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         window.statusBarColor = resources.getColor(R.color.yellow_base)
-        viewmodel = ViewModelProvider(this).get(MainViewmodel::class.java)
         setContent {
             FoodDeliveryTheme {
                 val navController = rememberNavController()

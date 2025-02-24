@@ -1,8 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
     id("kotlin-parcelize")
-    kotlin("plugin.serialization") version "1.9.20"
+    id("kotlin-kapt")
+    kotlin("plugin.serialization") version "1.9.0"
+
 }
 
 
@@ -49,12 +53,21 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    kapt {
+        correctErrorTypes = true
+    }
+    hilt {
+        enableAggregatingTask = false
+    }
 
 }
 
 dependencies {
 
+    implementation(libs.dagger.hilt.android)
+    kapt(libs.dagger.hilt)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.dagger.plugin)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
