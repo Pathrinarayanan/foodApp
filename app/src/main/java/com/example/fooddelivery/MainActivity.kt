@@ -1,5 +1,9 @@
 package com.example.fooddelivery
 
+import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -15,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -29,6 +35,9 @@ import com.example.fooddelivery.Home.HomeCV
 import com.example.fooddelivery.Home.HomeSplashScreen
 import com.example.fooddelivery.Home.MainPage
 import com.example.fooddelivery.Home.MyOrders
+import com.example.fooddelivery.Home.OrderConfirmPage
+import com.example.fooddelivery.Home.OrderSuccessPage
+import com.example.fooddelivery.Home.PaymentPage
 import com.example.fooddelivery.Home.ProductDetailsPage
 import com.example.fooddelivery.Home.model.FlowData
 import com.example.fooddelivery.Home.model.MenuItem
@@ -74,6 +83,7 @@ class MainActivity : ComponentActivity() {
             viewmodel.getFaqData()
             viewmodel.fetchUsername()
             viewmodel.fetchFavorites()
+            viewmodel.fetchCart()
         }
     }
 
@@ -89,11 +99,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("SuspiciousIndentation")
     @Composable
     fun FoodApp() {
         val navController = rememberNavController()
             NavHost(
-                startDestination = if (firebaseRepository.firebaseAuth.currentUser == null) "login" else "splash",
+                startDestination = if (firebaseRepository.firebaseAuth.currentUser == null) "login" else "checkout",
                 navController = navController,
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -135,6 +146,17 @@ class MainActivity : ComponentActivity() {
                 composable("splash") {
                     HomeSplashScreen(navController, viewmodel)
                 }
+                composable("checkout") {
+                    OrderConfirmPage(navController, viewmodel)
+                }
+                composable("payment") {
+                    PaymentPage( viewmodel,navController){
+                        showNotification(applicationContext, "Your Order is on the way! ", "Thank you for choosing your order, will reach in 25 minutes")
+                    }
+                }
+                composable("orderSuccess") {
+                    OrderSuccessPage()
+                }
                 composable(
                     "details/{menuItem}",
                     arguments = listOf(navArgument("menuItem") {
@@ -160,5 +182,36 @@ class MainActivity : ComponentActivity() {
             .take(5)
             .toMutableList()
     }
+    fun showNotification(context: Context, title: String, message: String) {
+        val channelId = "notification_channel"
+        val notificationId = 1
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Default Notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Notification Channel for App"
+            }
+
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.onbording_icon3)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationManager = ContextCompat.getSystemService(
+            context,
+            NotificationManager::class.java
+        )
+        notificationManager?.notify(notificationId, notification)
+    }
+
 
 }

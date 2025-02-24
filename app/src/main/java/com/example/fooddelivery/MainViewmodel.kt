@@ -5,6 +5,7 @@ import android.util.Patterns
 import android.view.View
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.MutableLiveData
@@ -22,6 +23,7 @@ import com.example.fooddelivery.repository.RetrofitRepository
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,15 +41,20 @@ import javax.inject.Inject
 class MainViewmodel @Inject constructor(private val repository: RetrofitRepository, private val firebaseRepository: FirebaseRepository) : ViewModel(){
     val homeData : MutableState<HomeResponseData?> = mutableStateOf<HomeResponseData?>(null)
     val faqData : MutableState<FaqModel?> = mutableStateOf<FaqModel?>(null)
-
+    val repos = firebaseRepository
     private val _sharedFlow : MutableSharedFlow<FlowData> = MutableSharedFlow<FlowData> (replay = 0)
     val sharedFlow = _sharedFlow.asSharedFlow()
     var username by mutableStateOf("")
     var favoritesList : MutableList<Int> =  mutableListOf()
+    var cartList : MutableList<Int> =  mutableListOf()
     var recentlyViewed : MutableList<Int> =  mutableListOf()
-
+    var subTotal by mutableStateOf(0)
+    var total by mutableStateOf(0)
     private val _menuItemsMap = MutableStateFlow<Map<Int, MenuItem>>(emptyMap())
     val menuItemsMap: StateFlow<Map<Int, MenuItem>> = _menuItemsMap.asStateFlow()
+    val cartItemCount = mutableStateMapOf<Int, Int>()
+    val cartPriceCount = mutableStateMapOf<Int,Int>()
+
 
     fun mapMenuItems() {
         val menuList = (homeData.value?.data?.restaurant?.menu?.best_sellers ?: emptyList()) +
@@ -204,18 +211,92 @@ class MainViewmodel @Inject constructor(private val repository: RetrofitReposito
         val uid = user.uid
         val docRef = firebaseRepository.db.collection("Favorites").document(uid)
 
-        docRef.update("favoriteIds", FieldValue.arrayUnion(id))
-            .addOnSuccessListener {
-                viewModelScope.launch {
-                    _sharedFlow.emit(FlowData.Toast("Added to Favorites"))
+        docRef.get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    docRef.update("favoriteIds", FieldValue.arrayUnion(id))
+                        .addOnSuccessListener {
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast("Added to Favorites"))
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error adding to favorites"))
+                            }
+                        }
+                } else {
+                    val favoritesData = hashMapOf("favoriteIds" to listOf(id))
+                    docRef.set(favoritesData, SetOptions.merge())
+                        .addOnSuccessListener {
+                            fetchFavorites()
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast("Added to Favorites"))
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error creating favorites list"))
+                            }
+                        }
                 }
             }
             .addOnFailureListener { exception ->
                 viewModelScope.launch {
-                    _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error"))
+                    _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error fetching favorites"))
                 }
             }
     }
+
+    fun addCartItems(id: Int) {
+        val user = firebaseRepository.firebaseAuth.currentUser
+        if (user == null) {
+            viewModelScope.launch {
+                _sharedFlow.emit(FlowData.Toast("User not logged in"))
+            }
+            return
+        }
+
+        val uid = user.uid
+        val docRef = firebaseRepository.db.collection("Cart").document(uid)
+
+        docRef.get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    docRef.update("cartIds", FieldValue.arrayUnion(id))
+                        .addOnSuccessListener {
+                            fetchCart()
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast("Added to Cart"))
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error"))
+                            }
+                        }
+                } else {
+                    val cartData = hashMapOf("cartIds" to listOf(id))
+                    docRef.set(cartData, SetOptions.merge())
+                        .addOnSuccessListener {
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast("Added to Cart"))
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            viewModelScope.launch {
+                                _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error creating cart"))
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener { exception ->
+                viewModelScope.launch {
+                    _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error fetching cart"))
+                }
+            }
+    }
+
     fun removeFavorites(id: Int) {
         val user = firebaseRepository.firebaseAuth.currentUser
         if (user == null) {
@@ -237,6 +318,31 @@ class MainViewmodel @Inject constructor(private val repository: RetrofitReposito
             .addOnFailureListener { exception ->
                 viewModelScope.launch {
                     _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error removing favorite"))
+                }
+            }
+    }
+    fun removeCarts(id: Int) {
+        val user = firebaseRepository.firebaseAuth.currentUser
+        if (user == null) {
+            viewModelScope.launch {
+                _sharedFlow.emit(FlowData.Toast("User not logged in"))
+            }
+            return
+        }
+
+        val uid = user.uid
+        val docRef = firebaseRepository.db.collection("Cart").document(uid)
+
+        docRef.update("cartIds", FieldValue.arrayRemove(id))
+            .addOnSuccessListener {
+                fetchCart()
+                viewModelScope.launch {
+                    _sharedFlow.emit(FlowData.Toast("Removed from Cart"))
+                }
+            }
+            .addOnFailureListener { exception ->
+                viewModelScope.launch {
+                    _sharedFlow.emit(FlowData.Toast(exception.localizedMessage ?: "Error removing Cart"))
                 }
             }
     }
@@ -285,6 +391,29 @@ class MainViewmodel @Inject constructor(private val repository: RetrofitReposito
             }
             .addOnFailureListener {
                 favoritesList = mutableListOf()
+            }
+    }
+    fun fetchCart() {
+        val user = firebaseRepository.firebaseAuth.currentUser
+        if (user == null) {
+            cartList = mutableListOf()
+            return
+        }
+
+        val uid = user.uid
+        val docRef = firebaseRepository.db.collection("Cart").document(uid)
+
+        docRef.get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val favorites = document.get("cartIds") as? List<Int> ?: emptyList()
+                    cartList = favorites.map { it.toInt() }.toMutableList()
+                } else {
+                    cartList = mutableListOf()
+                }
+            }
+            .addOnFailureListener {
+                cartList = mutableListOf()
             }
     }
 

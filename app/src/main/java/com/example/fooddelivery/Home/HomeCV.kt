@@ -1,6 +1,5 @@
 package com.example.fooddelivery.Home
 
-import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -10,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +51,6 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -62,15 +59,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -245,24 +243,29 @@ fun OrderSuccessPage(){
 
 
 @Composable
-fun OrderConfirmItem(){
+fun OrderConfirmItem(item: MenuItem, baseUrl: String,viewmodel: MainViewmodel,index:Int, onClick: (String) -> Unit){
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .background(Color.White)
-            .padding(top = 10.dp)
+            .background(Color.White),
+        verticalAlignment = Alignment.CenterVertically
 
     ){
-        Image(
-            painter = painterResource(R.drawable.strawberry),
-            contentDescription = null,
-            modifier = Modifier
-                .padding(top = 16.dp, bottom = 16.dp)
-                .size(80.dp, 100.dp)
-        )
+        Box(modifier = Modifier
+            .padding(top = 16.dp, bottom = 16.dp)
+            .size(80.dp, 100.dp)
+            .clip(RoundedCornerShape(12.dp))) {
+            Image(
+                painter = rememberAsyncImagePainter(baseUrl + item?.image_url),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds
+            )
+        }
 
         Column(
+            modifier = Modifier.padding(start = 10.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ){
             Row(modifier = Modifier.fillMaxWidth()){
@@ -270,14 +273,13 @@ fun OrderConfirmItem(){
                 Image(painter = painterResource(R.drawable.trash_icon), contentDescription = null, modifier = Modifier.size(20.dp))
             }
             Row(modifier = Modifier.padding(top =10.dp)){
-                Text("Strawberry shake", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W600)
+                Text(item?.name ?:"", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W600)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("₹20.00", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
+                Text("₹ ${viewmodel.cartPriceCount[index] ?:0}", color = colorResource(R.color.orange_base), fontWeight = FontWeight.W600)
             }
             Row(modifier = Modifier.padding(top =8.dp)){
-                Text("29 Nov, 01:20 pm ", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W400)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("2 items", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W400)
+                Text("${viewmodel.cartItemCount[index] ?:0} items", color = colorResource(R.color.font_brown), fontWeight = FontWeight.W400)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top =5.dp)){
@@ -306,15 +308,19 @@ fun OrderConfirmItem(){
                     Image(
                         painter = painterResource(R.drawable.less_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(20.dp).clickable {
+                            onClick("sub")
+                        },
                     )
-                    Text("2", fontSize = 18.sp,
+                    Text("${viewmodel.cartItemCount[index] ?:0}", fontSize = 18.sp,
                         fontWeight = FontWeight.W600,
                         color = colorResource(R.color.font_brown))
                     Image(
                         painter = painterResource(R.drawable.more_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(20.dp).clickable {
+                            onClick("add")
+                        },
                     )
                 }
             }
@@ -521,7 +527,6 @@ fun FavoritesIcon(enable :Boolean, onClick: (Boolean) -> Unit){
 fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel, navController: NavController) {
     val baseUrl = viewmodel.homeData.value?.base_image_url
     var favorites by remember {  mutableStateOf(false) }
-    Log.d("pathris", viewmodel.recentlyViewed.toString())
     Scaffold (
         topBar = {
             Column(
@@ -672,7 +677,13 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel, navContro
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable (
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ){
+                            viewmodel.addCartItems(menuItem?.id ?:0)
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -765,9 +776,12 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel, navContro
     }
 }
 
+
 @Composable
-fun PaymentPage(){
-    Scaffold (
+fun PaymentPage(viewmodel: MainViewmodel, navController: NavController, sendNotification :()->Unit) {
+    val ordersData = viewmodel.getMenuItemsByIds(viewmodel.cartList)
+
+    Scaffold(
         topBar = {
             Column(
                 modifier = Modifier
@@ -776,13 +790,14 @@ fun PaymentPage(){
                     .background(
                         color = colorResource(R.color.yellow_base)
                     )
+                    .padding(top = 20.dp)
             ) {
-                Row (
+                Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(start = 35.dp)
                         .padding(vertical = 40.dp)
-                ){
+                ) {
                     Icon(
                         Icons.Filled.KeyboardArrowLeft,
                         contentDescription = null,
@@ -798,13 +813,15 @@ fun PaymentPage(){
                             .padding(horizontal = 20.dp)
                             .fillMaxWidth(),
 
-                    )
+                        )
                 }
 
             }
         },
         bottomBar = {
-            BottomBar()
+            BottomBar() { page ->
+                navController.navigate("Main/${page}")
+            }
         }
     ) {
         Column(
@@ -813,8 +830,7 @@ fun PaymentPage(){
                 .fillMaxSize()
                 .background(colorResource(R.color.yellow_base))
                 .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
-                .background(Color.White)
-            ,
+                .background(Color.White),
         ) {
             Column(
                 modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp),
@@ -823,8 +839,12 @@ fun PaymentPage(){
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ){
-                    Text("Shipping Address", fontSize = 20.sp, color = colorResource(R.color.font_brown))
+                ) {
+                    Text(
+                        "Shipping Address",
+                        fontSize = 20.sp,
+                        color = colorResource(R.color.font_brown)
+                    )
                     Icon(
                         Icons.Filled.Create,
                         contentDescription = null,
@@ -839,8 +859,13 @@ fun PaymentPage(){
                         .clip(RoundedCornerShape(12.dp))
                         .background(colorResource(R.color.yellow_2)),
                     contentAlignment = Alignment.CenterStart
-                ){
-                    Text("778 Locust View Drive Oaklanda, CA", fontSize = 16.sp, color = colorResource(R.color.font_brown),modifier = Modifier.padding(start = 10.dp))
+                ) {
+                    Text(
+                        "778, Lake View Road, Chennai",
+                        fontSize = 16.sp,
+                        color = colorResource(R.color.font_brown),
+                        modifier = Modifier.padding(start = 10.dp)
+                    )
                 }
                 Row(
                     modifier = Modifier
@@ -849,11 +874,11 @@ fun PaymentPage(){
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Order Summary",
+                        "Order Summary (incl. Taxes)",
                         color = colorResource(R.color.font_brown),
                         fontWeight = FontWeight.W600
                     )
-                    Spacer(modifier =Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
                     Box(
                         modifier = Modifier
                             .wrapContentWidth()
@@ -862,7 +887,7 @@ fun PaymentPage(){
                             .background(color = colorResource(R.color.orange_2))
                             .padding(horizontal = 10.dp, vertical = 5.dp)
 
-                    ){
+                    ) {
                         Text(
                             "Edit",
                             fontSize = 12.sp,
@@ -871,31 +896,40 @@ fun PaymentPage(){
                     }
 
                 }
-
-                for(i in 0..2) {
+                val total = viewmodel.cartPriceCount.values.sumOf { it }
+                ordersData.forEachIndexed { index, it ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("Strawberry Shake", color = colorResource(R.color.font_brown))
-                        Text("2 items", color = colorResource(R.color.orange_base))
-                        if(i == 2){
+                        Text(it.name ?: "", color = colorResource(R.color.font_brown))
+                        Text(
+                            "${viewmodel.cartItemCount[index]} items",
+                            color = colorResource(R.color.orange_base)
+                        )
+                        if (index == ordersData.size - 1) {
                             Spacer(modifier = Modifier.weight(1f))
-                            Text("₹40.00", fontSize = 20.sp, color = colorResource(R.color.font_brown), fontWeight = FontWeight.W700)
+                            Text(
+                                "₹${total + (total * 0.18).toInt() + 60}",
+                                fontSize = 20.sp,
+                                color = colorResource(R.color.font_brown),
+                                fontWeight = FontWeight.W700
+                            )
 
                         }
                     }
-
                 }
 
 
-                Spacer(modifier = Modifier
-                    .padding(top = 10.dp)
-                    .height(1.dp)
-                    .fillMaxWidth()
-                    .background(Color(0xffffd8c7)))
+                Spacer(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
                 Column(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
-                ){
+                ) {
                     Text(
                         "Delivery Time",
                         color = colorResource(R.color.font_brown),
@@ -916,11 +950,13 @@ fun PaymentPage(){
                         )
 
                     }
-                    Spacer(modifier = Modifier
-                        .padding(top = 10.dp)
-                        .height(1.dp)
-                        .fillMaxWidth()
-                        .background(Color(0xffffd8c7)))
+                    Spacer(
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .height(1.dp)
+                            .fillMaxWidth()
+                            .background(Color(0xffffd8c7))
+                    )
 
                     Box(
                         modifier = Modifier
@@ -930,9 +966,14 @@ fun PaymentPage(){
                             .clip(RoundedCornerShape(12.dp))
                             .background(color = colorResource(R.color.orange_2))
                             .padding(horizontal = 15.dp)
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 10.dp)
+                            .clickable (indication = null, interactionSource = remember { MutableInteractionSource() }){
+                                sendNotification()
+                                navController.navigate("orderSuccess")
+
+                            },
                         contentAlignment = Alignment.Center
-                    ){
+                    ) {
                         Text("Pay Now", color = colorResource(R.color.orange_base))
                     }
                 }
@@ -940,13 +981,15 @@ fun PaymentPage(){
             }
 
 
-
         }
     }
 }
 
+
 @Composable
-fun OrderConfirmPage(){
+fun OrderConfirmPage(navController: NavController, viewmodel: MainViewmodel){
+    val ordersData = viewmodel.getMenuItemsByIds(viewmodel.cartList)
+    val baseUrl = viewmodel.homeData.value?.base_image_url
     Scaffold (
         topBar = {
             Column(
@@ -956,12 +999,13 @@ fun OrderConfirmPage(){
                     .background(
                         color = colorResource(R.color.yellow_base)
                     )
+                    .padding(top =20.dp)
             ) {
                 Row (
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(start = 35.dp)
-                        .padding(vertical = 40.dp)
+                        .padding(top = 40.dp, bottom = 40.dp)
                 ){
                     Icon(
                         Icons.Filled.KeyboardArrowLeft,
@@ -984,7 +1028,9 @@ fun OrderConfirmPage(){
             }
         },
         bottomBar = {
-            BottomBar()
+            BottomBar(){page->
+                navController.navigate("Main/${page}")
+            }
         }
     ) {
         Column(
@@ -1003,8 +1049,12 @@ fun OrderConfirmPage(){
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ){
-                    Text("Shipping Address", fontSize = 20.sp, color = colorResource(R.color.font_brown))
+                ) {
+                    Text(
+                        "Shipping Address",
+                        fontSize = 20.sp,
+                        color = colorResource(R.color.font_brown)
+                    )
                     Icon(
                         Icons.Filled.Create,
                         contentDescription = null,
@@ -1019,8 +1069,13 @@ fun OrderConfirmPage(){
                         .clip(RoundedCornerShape(12.dp))
                         .background(colorResource(R.color.yellow_2)),
                     contentAlignment = Alignment.CenterStart
-                ){
-                    Text("778 Locust View Drive Oaklanda, CA", fontSize = 16.sp, color = colorResource(R.color.font_brown),modifier = Modifier.padding(start = 10.dp))
+                ) {
+                    Text(
+                        "778, Lake View Road, Chennai",
+                        fontSize = 16.sp,
+                        color = colorResource(R.color.font_brown),
+                        modifier = Modifier.padding(start = 10.dp)
+                    )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1031,7 +1086,7 @@ fun OrderConfirmPage(){
                         color = colorResource(R.color.font_brown),
                         fontWeight = FontWeight.W600
                     )
-                    Spacer(modifier =Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
                     Box(
                         modifier = Modifier
                             .wrapContentWidth()
@@ -1040,7 +1095,7 @@ fun OrderConfirmPage(){
                             .background(color = colorResource(R.color.orange_2))
                             .padding(horizontal = 10.dp, vertical = 5.dp)
 
-                    ){
+                    ) {
                         Text(
                             "Edit",
                             fontSize = 12.sp,
@@ -1049,13 +1104,34 @@ fun OrderConfirmPage(){
                     }
 
                 }
-                Spacer(modifier = Modifier
-                    .padding(top = 10.dp)
-                    .height(1.dp)
-                    .fillMaxWidth()
-                    .background(Color(0xffffd8c7)))
-                for(i in 0..3) {
-                    OrderConfirmItem()
+                Spacer(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
+                ordersData.forEachIndexed{index, item ->
+
+                    OrderConfirmItem(item, baseUrl ?:"",viewmodel,index){
+                        if(it == "add"){
+                            viewmodel.cartItemCount[index] = viewmodel.cartItemCount.getOrDefault(index, 0) +1
+                            viewmodel.cartPriceCount[index] = viewmodel.cartPriceCount.getOrDefault(index, 0) + (item?.price ?:0)
+
+                        }
+                        else{
+                            val currentCount = viewmodel.cartItemCount.getOrDefault(index, 0)
+
+                            if (currentCount > 1) {
+                                viewmodel.cartItemCount[index] = currentCount - 1
+                                viewmodel.cartPriceCount[index] = viewmodel.cartPriceCount.getOrDefault(index, 0) - (item?.price ?: 0)
+                            } else if (currentCount == 1) {
+                                viewmodel.cartItemCount.remove(index)
+                                viewmodel.cartPriceCount.remove(index)
+                                viewmodel.removeCarts(item.id)
+                            }
+                        }
+                    }
                     Spacer(
                         modifier = Modifier
                             .height(1.dp)
@@ -1064,12 +1140,29 @@ fun OrderConfirmPage(){
                     )
                 }
             }
+            Box(
+                modifier = Modifier
+                    .padding(top = 50.dp)
+                    .wrapContentWidth()
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .padding(horizontal = 15.dp)
+                    .background(color = colorResource(R.color.orange_2))
+                    .padding(vertical = 10.dp)
+                    .clickable {
+                        navController.navigate("payment")
+                    },
+                contentAlignment = Alignment.Center
+            ){
+                Text("Proceed to Payment", color = colorResource(R.color.orange_base))
+            }
+            }
 
 
 
         }
     }
-}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BestSellersPage(viewmodel: MainViewmodel, navController: NavController) {
@@ -1244,10 +1337,10 @@ fun FavoriteItem(data : MenuItem, baseUrl: String,navController: NavController){
             modifier = Modifier
                 .size(150.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable (
+                .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
-                ){
+                ) {
                     val gson = Gson()
                     val myData = gson.toJson(data)
                     val encodedData = URLEncoder.encode(
@@ -1786,6 +1879,328 @@ fun NotificationNavigationDrawer(){
     }
 }
 @Composable
+fun DottedLine(
+    color: Color = Color.Gray,
+    modifier: Modifier = Modifier
+        .fillMaxWidth()
+        .height(1.dp)
+) {
+    Canvas(modifier = modifier) {
+        val lineWidth = 10f
+        val gapWidth = 10f
+        val y = size.height / 2
+
+        var startX = 0f
+        while (startX < size.width) {
+            drawLine(
+                color = color,
+                start = Offset(startX, y),
+                end = Offset(startX + lineWidth, y),
+                strokeWidth = size.height
+            )
+            startX += (lineWidth + gapWidth)
+        }
+    }
+}
+
+@Composable
+fun CartItem(item: MenuItem, baseUrl: String, viewmodel: MainViewmodel,count :Int, onClick: (String) -> Unit){
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .height(120.dp)
+        .background(color = colorResource(R.color.orange_base))
+        .padding(vertical = 12.dp)){
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .weight(0.3f)
+        ){
+            Image(
+                painter = rememberAsyncImagePainter(baseUrl + item?.image_url),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds
+            )
+        }
+        Column(
+            modifier =Modifier.padding(start = 10.dp).weight(0.35f),
+        ){
+            Spacer(modifier =Modifier.weight(1f))
+            Text(
+                item?.name ?:"", fontSize = 15.sp,
+                fontWeight = FontWeight.W600,
+                color = colorResource(R.color.yellow_2),
+            )
+            Text(
+                "₹ ${item?.price}", fontSize = 15.sp,
+                fontWeight = FontWeight.W600,
+                color = colorResource(R.color.yellow_2),
+            )
+            Spacer(modifier =Modifier.weight(1f))
+
+        }
+
+        Column(modifier = Modifier.weight(0.3f)) {
+            Spacer(modifier =Modifier.weight(1f))
+            Row(
+                modifier = Modifier.padding(start = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.minus_icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(8.dp).clickable {
+                            viewmodel.subTotal -= item.price ?:0
+                            onClick("sub")
+                        }
+                    )
+                }
+                Text(
+                    count.toString(), fontSize = 18.sp,
+                    fontWeight = FontWeight.W700,
+                    color = colorResource(R.color.yellow_2),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.plus_icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(8.dp).clickable {
+                            viewmodel.subTotal += item.price ?:0
+                            onClick("add")
+                        }
+                    )
+                }
+
+            }
+            Spacer(modifier =Modifier.weight(1f))
+
+        }
+
+    }
+}
+
+@Composable
+fun CartDrawer(viewmodel: MainViewmodel,navController: NavController){
+    val cartData = viewmodel.getMenuItemsByIds(viewmodel.cartList)
+    val baseUrl = viewmodel.homeData.value?.base_image_url
+    val tax by remember { derivedStateOf {viewmodel.subTotal * 0.18f} }
+    val delivery = 60
+    viewmodel. total = viewmodel.subTotal + tax.toInt() + delivery
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(
+                RoundedCornerShape(topStart = 100.dp, bottomStart = 100.dp)
+            )
+            .background(color = colorResource(R.color.orange_base))
+            .padding(25.dp)
+            .padding(end = 65.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+
+        Row(
+            modifier = Modifier
+                .padding(start = 50.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.cart_white_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            Text(
+                "Cart",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.W700,
+                color = colorResource(R.color.yellow_2)
+            )
+
+        }
+        Spacer(
+            modifier = Modifier
+                .height(1.dp)
+                .fillMaxWidth()
+                .background(Color(0xffffd8c7))
+        )
+
+        Text(
+           if(cartData.isEmpty()) "Your Cart is empty" else
+            "You have ${cartData.size} items in cart",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.W600,
+            color = colorResource(R.color.yellow_2),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        if(cartData.isEmpty()) {
+            Column(
+                modifier = Modifier.padding(top = 100.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.add_to_cart_icon),
+                    contentDescription = null,
+                )
+                Text(
+                    "Want to Add Something?",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.W700,
+                    color = colorResource(R.color.yellow_2),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        else {
+            cartData?.forEachIndexed {index, item ->
+                viewmodel.cartItemCount[index] = viewmodel.cartItemCount.getOrDefault(index, 1)
+                viewmodel.cartPriceCount[index] = viewmodel.cartPriceCount.getOrDefault(index, item?.price?:0)
+
+                CartItem(item, baseUrl?:"",viewmodel, viewmodel.cartItemCount[index] ?:0){
+                    if(it == "add"){
+                        viewmodel.cartItemCount[index] = viewmodel.cartItemCount.getOrDefault(index, 0) +1
+                        viewmodel.cartPriceCount[index] = viewmodel.cartPriceCount.getOrDefault(index, 0) + (item?.price ?:0)
+
+                    }
+                    else{
+                        val currentCount = viewmodel.cartItemCount.getOrDefault(index, 0)
+
+                        if (currentCount > 1) {
+                            viewmodel.cartItemCount[index] = currentCount - 1
+                            viewmodel.cartPriceCount[index] = viewmodel.cartPriceCount.getOrDefault(index, 0) - (item?.price ?: 0)
+                        } else if (currentCount == 1) {
+                            viewmodel.cartItemCount.remove(index)
+                            viewmodel.cartPriceCount.remove(index)
+                            viewmodel.removeCarts(item.id)
+                        }
+                    }
+                }
+                Spacer(
+                    modifier = Modifier
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
+            }
+            viewmodel.subTotal =(  viewmodel.cartPriceCount.values.sumOf { it.toInt() })
+            Row {
+                Text(
+                    "Subtotal",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    "₹ ${viewmodel.subTotal}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+
+            }
+            Row {
+                Text(
+                    "Tax",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    "₹ ${tax.roundToInt()}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+
+            }
+            Row {
+                Text(
+                    "Delivery",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    "₹ ${delivery}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+
+            }
+            DottedLine(color = Color(0xffffd8c7))
+            Row {
+                Text(
+                    "Total",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    "₹ ${viewmodel.total}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.yellow_2),
+                )
+
+            }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.weight(1f))
+
+                Box(
+                    modifier = Modifier.width(130.dp).height(35.dp).clip(RoundedCornerShape(20.dp))
+                        .background(color = colorResource(R.color.yellow_base))
+                        .clickable (indication = null, interactionSource = remember { MutableInteractionSource() }){
+                            navController.navigate("checkout")
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Checkout",
+                        color = colorResource(R.color.orange_base),
+                        fontWeight = FontWeight.W600,
+                        fontSize = 20.sp
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+@Composable
 fun ProfileNavigationDrawer(viewmodel: MainViewmodel, navController: NavController){
     var alertVisible by remember { mutableStateOf(false) }
     if(alertVisible) {
@@ -1839,7 +2254,7 @@ fun ProfileNavigationDrawer(viewmodel: MainViewmodel, navController: NavControll
             modifier = Modifier.padding(start = 16.dp)
         ){
             Text(viewmodel.username?:"", fontSize = 24.sp, color = colorResource(R.color.font2))
-            Text("pathrinarayananmdu@gmail.com", fontSize = 16.sp, color = colorResource(R.color.yellow_2))
+            Text( viewmodel.repos.firebaseAuth.currentUser?.email.toString(), fontSize = 16.sp, color = colorResource(R.color.yellow_2))
         }
         val profileItems  = listOf(
             NavigationDrawerItem(R.drawable.cart_icon, "My Orders"),
@@ -1905,304 +2320,241 @@ fun MainPage(navController: NavController, viewmodel: MainViewmodel, currentInde
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
+fun HomeCV (viewmodel: MainViewmodel, navController: NavController) {
     var profileVisible by remember { mutableStateOf(false) }
     var isProfile by remember { mutableStateOf(false) }
+    var isCart by remember { mutableStateOf(false) }
     var notifyVisible by remember { mutableStateOf(false) }
+    var cartVisible by remember { mutableStateOf(false) }
     var isNotify by remember { mutableStateOf(false) }
     val bottomSheetScaffoldState = rememberBottomSheetScaffoldState()
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val sheetWidth = screenWidth / 2
     val offsetX = remember { Animatable(sheetWidth.value) }
-    BottomSheetScaffold  (
-        scaffoldState = bottomSheetScaffoldState,
-        content = {
-            Column(
-                modifier = Modifier
-                    .wrapContentHeight()
-                    .background(
-                        color = colorResource(R.color.yellow_base)
-                    )
-                    .padding(bottom = 20.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 35.dp)
-                        .padding(top = 30.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(30.dp)
-                            .width(200.dp)
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(Color.White)
-                    ) {
-                        Row(
-                            modifier = Modifier.matchParentSize(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Search",
-                                modifier = Modifier.padding(start = 12.dp)
-                            )
-                            Spacer(modifier =Modifier.weight(1f))
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 5.dp)
-                                    .size(20.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(color = colorResource(R.color.orange_base)),
-                                contentAlignment = Alignment.Center
-                            ){
-                                Image(painter = painterResource(R.drawable.filter_icon), contentDescription = null)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White), contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.cart_icon),
-                            contentDescription = null,
-                            modifier = Modifier.clickable (
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ){
 
-                            }
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 16.dp)
-                            .size(26.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White)
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                notifyVisible = true
-                                isNotify = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.notify_icon),
-                            contentDescription = null
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 16.dp)
-                            .size(26.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White)
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                profileVisible = true;isProfile = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.profile_icon),
-                            contentDescription = null
-                        )
-                    }
-
-                }
-                Text(
-                    "Good Morning",
-                    fontSize = 30.sp,
-                    color = colorResource(R.color.font2),
-                    fontWeight = FontWeight.W700,
-                    modifier = Modifier
-                        .padding(horizontal = 35.dp)
-                        .padding(top = 16.dp)
-                )
-                Text(
-                    "Rise and Shine, It's Breakfast time",
-                    fontSize = 13.sp,
-                    color = colorResource(R.color.orange_base),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 35.dp)
-                )
-
-
-
-
-            }
-        },
-    sheetContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(colorResource(R.color.yellow_base))
-                    .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
-                    .background(Color.White)
-                    .verticalScroll(rememberScrollState())
-                ,
-            ) {
+    Box (modifier = Modifier.fillMaxSize()){
+        BottomSheetScaffold(
+            scaffoldState = bottomSheetScaffoldState,
+            content = {
                 Column(
-                    modifier = Modifier.padding(top = 35.dp)
+                    modifier = Modifier
+                        .wrapContentHeight()
+                        .background(
+                            color = colorResource(R.color.yellow_base)
+                        )
+                        .padding(bottom = 20.dp)
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 35.dp, end = 35.dp)
-                    ) {
-                        FoodItems(R.drawable.snacks_icon, "Snacks")
-                        FoodItems(R.drawable.meals_icon, "Meals")
-                        FoodItems(R.drawable.vegan_icon, "Vegan")
-                        FoodItems(R.drawable.desserts_icon, "Desserts")
-                        FoodItems(R.drawable.drinks_icon, "Drinks")
-                    }
-                    Spacer(
                         modifier = Modifier
-                            .padding(top = 15.dp)
-                            .height(1.dp)
-                            .fillMaxWidth()
-                            .background(Color(0xffffd8c7))
-                    )
-                    Spacer(modifier = Modifier
-                        .fillMaxWidth()
-                        .height(15.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight()
-                            .padding(start = 35.dp, end = 35.dp)
+                            .padding(horizontal = 35.dp)
+                            .padding(top = 30.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Best Sellers",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.W600,
-                            color = colorResource(R.color.font_brown)
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            modifier = Modifier.clickable (
-                                indication =  null, 
-                                interactionSource = remember { MutableInteractionSource() }
-                            ){
-                                navController.navigate("bestSellers")
-                            }
+                        Box(
+                            modifier = Modifier
+                                .height(30.dp)
+                                .width(200.dp)
+                                .clip(RoundedCornerShape(30.dp))
+                                .background(Color.White)
                         ) {
-                            Text(
-                                "View All",
-                                fontWeight = FontWeight.SemiBold,
-                                color = colorResource(R.color.orange_base)
-                            )
-                            Icon(
-                                Icons.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = colorResource(R.color.orange_base)
-                            )
-                        }
-
-                    }
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 14.dp)
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(15.dp)
-                    ) {
-                        val bestSellers =viewmodel.homeData.value?.data?.restaurant?.menu?.best_sellers?.take(4)
-                        val baseUrl = viewmodel.homeData.value?.base_image_url
-                        val bestSellersSize = bestSellers?.size ?:0
-                        bestSellers?.forEachIndexed {index, it->
-                            Box(
-                                modifier = Modifier
-                                    .padding(
-                                        start = if (index == 0) 35.dp else 0.dp,
-                                        end = if (index == bestSellersSize - 1) 35.dp else 0.dp
-                                    )
-                                    .height(108.dp)
-                                    .width(108.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        val gson = Gson()
-                                        val data = gson.toJson(it)
-                                        val encodedData = URLEncoder.encode(
-                                            data,
-                                            StandardCharsets.UTF_8.toString()
-                                        )
-                                        navController.navigate("details/${encodedData}")
-                                    },
-                                contentAlignment = Alignment.BottomEnd
+                            Row(
+                                modifier = Modifier.matchParentSize(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Image(
-                                    rememberAsyncImagePainter(baseUrl + it?.image_url),
-                                    contentDescription = null,
-                                    modifier = Modifier.matchParentSize(),
-                                    contentScale = ContentScale.FillBounds
+                                Text(
+                                    "Search",
+                                    modifier = Modifier.padding(start = 12.dp)
                                 )
+                                Spacer(modifier = Modifier.weight(1f))
                                 Box(
                                     modifier = Modifier
-                                        .padding(bottom = 12.dp)
-                                        .width(40.dp)
-                                        .height(20.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(color = colorResource(R.color.orange_base))
-                                        .padding(horizontal = 4.dp)
-                                        .padding(bottom = 4.dp),
+                                        .padding(end = 5.dp)
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(color = colorResource(R.color.orange_base)),
                                     contentAlignment = Alignment.Center
-
                                 ) {
-                                    Text(
-                                        "₹ ${it?.price}",
-                                        color = colorResource(R.color.white),
-                                        fontSize = 10.sp,
-                                        modifier =Modifier.fillMaxSize(),
-                                        textAlign = TextAlign.Center
+                                    Image(
+                                        painter = painterResource(R.drawable.filter_icon),
+                                        contentDescription = null
                                     )
                                 }
                             }
                         }
-                    }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    isCart = true; cartVisible = true
+                                }, contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.cart_icon),
+                                contentDescription = null,
 
-                    CarouselSection(viewmodel)
+                                )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 16.dp)
+                                .size(26.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    notifyVisible = true
+                                    isNotify = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.notify_icon),
+                                contentDescription = null
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 16.dp)
+                                .size(26.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    profileVisible = true;isProfile = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.profile_icon),
+                                contentDescription = null
+                            )
+                        }
+
+                    }
                     Text(
-                        "Recommended",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.W600,
-                        color = colorResource(R.color.font_brown),
-                        modifier = Modifier.padding(top = 16.dp, start = 35.dp, end = 35.dp)
-                    )
-                    LazyVerticalGrid(
+                        "Good Morning",
+                        fontSize = 30.sp,
+                        color = colorResource(R.color.font2),
+                        fontWeight = FontWeight.W700,
                         modifier = Modifier
                             .padding(horizontal = 35.dp)
-                            .fillMaxWidth()
-                            .height(320.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        columns = GridCells.Fixed(2)
+                            .padding(top = 16.dp)
+                    )
+                    Text(
+                        "Rise and Shine, It's Breakfast time",
+                        fontSize = 13.sp,
+                        color = colorResource(R.color.orange_base),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 35.dp)
+                    )
+                }
+            },
+            sheetContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(colorResource(R.color.yellow_base))
+                        .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                        .background(Color.White)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(top = 35.dp)
                     ) {
-                        val recommened =
-                            viewmodel.homeData.value?.data?.restaurant?.menu?.recommended
-                        val baseUrl = viewmodel.homeData.value?.base_image_url
-                        recommened?.drop(4)?.forEach {
-                            item {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 35.dp, end = 35.dp)
+                        ) {
+                            FoodItems(R.drawable.snacks_icon, "Snacks")
+                            FoodItems(R.drawable.meals_icon, "Meals")
+                            FoodItems(R.drawable.vegan_icon, "Vegan")
+                            FoodItems(R.drawable.desserts_icon, "Desserts")
+                            FoodItems(R.drawable.drinks_icon, "Drinks")
+                        }
+                        Spacer(
+                            modifier = Modifier
+                                .padding(top = 15.dp)
+                                .height(1.dp)
+                                .fillMaxWidth()
+                                .background(Color(0xffffd8c7))
+                        )
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(15.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .padding(start = 35.dp, end = 35.dp)
+                        ) {
+                            Text(
+                                "Best Sellers",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.W600,
+                                color = colorResource(R.color.font_brown)
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier.clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    navController.navigate("bestSellers")
+                                }
+                            ) {
+                                Text(
+                                    "View All",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorResource(R.color.orange_base)
+                                )
+                                Icon(
+                                    Icons.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = colorResource(R.color.orange_base)
+                                )
+                            }
+
+                        }
+                        Row(
+                            modifier = Modifier
+                                .padding(top = 14.dp)
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(15.dp)
+                        ) {
+                            val bestSellers =
+                                viewmodel.homeData.value?.data?.restaurant?.menu?.best_sellers?.take(
+                                    4
+                                )
+                            val baseUrl = viewmodel.homeData.value?.base_image_url
+                            val bestSellersSize = bestSellers?.size ?: 0
+                            bestSellers?.forEachIndexed { index, it ->
                                 Box(
                                     modifier = Modifier
-                                        .padding(top = 16.dp)
-                                        .height(140.dp)
-                                        .width(160.dp)
+                                        .padding(
+                                            start = if (index == 0) 35.dp else 0.dp,
+                                            end = if (index == bestSellersSize - 1) 35.dp else 0.dp
+                                        )
+                                        .height(108.dp)
+                                        .width(108.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .clickable (
-                                            indication = null, interactionSource = remember { MutableInteractionSource() }
-                                        ){
+                                        .clickable {
                                             val gson = Gson()
                                             val data = gson.toJson(it)
                                             val encodedData = URLEncoder.encode(
@@ -2214,12 +2566,11 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
                                     contentAlignment = Alignment.BottomEnd
                                 ) {
                                     Image(
-                                        painter = rememberAsyncImagePainter(baseUrl + it.image_url),
+                                        rememberAsyncImagePainter(baseUrl + it?.image_url),
                                         contentDescription = null,
                                         modifier = Modifier.matchParentSize(),
                                         contentScale = ContentScale.FillBounds
                                     )
-
                                     Box(
                                         modifier = Modifier
                                             .padding(bottom = 12.dp)
@@ -2236,77 +2587,157 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
                                             "₹ ${it?.price}",
                                             color = colorResource(R.color.white),
                                             fontSize = 10.sp,
-                                            modifier =Modifier.fillMaxSize(),
+                                            modifier = Modifier.fillMaxSize(),
                                             textAlign = TextAlign.Center
                                         )
                                     }
-
                                 }
-
                             }
                         }
+
+                        CarouselSection(viewmodel)
+                        Text(
+                            "Recommended",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.W600,
+                            color = colorResource(R.color.font_brown),
+                            modifier = Modifier.padding(top = 16.dp, start = 35.dp, end = 35.dp)
+                        )
+                        LazyVerticalGrid(
+                            modifier = Modifier
+                                .padding(horizontal = 35.dp)
+                                .fillMaxWidth()
+                                .height(320.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            columns = GridCells.Fixed(2)
+                        ) {
+                            val recommened =
+                                viewmodel.homeData.value?.data?.restaurant?.menu?.recommended
+                            val baseUrl = viewmodel.homeData.value?.base_image_url
+                            recommened?.drop(4)?.forEach {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 16.dp)
+                                            .height(140.dp)
+                                            .width(160.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = remember { MutableInteractionSource() }
+                                            ) {
+                                                val gson = Gson()
+                                                val data = gson.toJson(it)
+                                                val encodedData = URLEncoder.encode(
+                                                    data,
+                                                    StandardCharsets.UTF_8.toString()
+                                                )
+                                                navController.navigate("details/${encodedData}")
+                                            },
+                                        contentAlignment = Alignment.BottomEnd
+                                    ) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(baseUrl + it.image_url),
+                                            contentDescription = null,
+                                            modifier = Modifier.matchParentSize(),
+                                            contentScale = ContentScale.FillBounds
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(bottom = 12.dp)
+                                                .width(40.dp)
+                                                .height(20.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(color = colorResource(R.color.orange_base))
+                                                .padding(horizontal = 4.dp)
+                                                .padding(bottom = 4.dp),
+                                            contentAlignment = Alignment.Center
+
+                                        ) {
+                                            Text(
+                                                "₹ ${it?.price}",
+                                                color = colorResource(R.color.white),
+                                                fontSize = 10.sp,
+                                                modifier = Modifier.fillMaxSize(),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+
+                                    }
+
+                                }
+                            }
+                        }
+
                     }
-
                 }
-            }
 
-    },
-        sheetPeekHeight = 670.dp,
-        sheetDragHandle = null,
-        sheetContentColor = colorResource(R.color.yellow_base),
-        containerColor = colorResource(R.color.yellow_base),
-        contentColor = colorResource(R.color.yellow_base),
-        sheetContainerColor = colorResource(R.color.yellow_base)
+            },
+            sheetPeekHeight = 670.dp,
+            sheetDragHandle = null,
+            sheetContentColor = colorResource(R.color.yellow_base),
+            containerColor = colorResource(R.color.yellow_base),
+            contentColor = colorResource(R.color.yellow_base),
+            sheetContainerColor = colorResource(R.color.yellow_base)
         )
-    AnimatedVisibility(
-        modifier = Modifier.fillMaxSize(),
-        visible = (profileVisible && isProfile)  || (isNotify && notifyVisible),
-        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(sheetWidth)
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .background(Color.Transparent)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (offsetX.value > sheetWidth.value * 0.5f) {
-                                notifyVisible = false
-                                isNotify = false
-                                profileVisible = false
-                                isProfile = false
-                            } else {
-                                viewmodel.viewModelScope.launch {
+        AnimatedVisibility(
+            modifier = Modifier.fillMaxSize(),
+            visible = (profileVisible && isProfile) || (isNotify && notifyVisible) || (isCart && cartVisible),
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(sheetWidth)
+                    .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                    .background(Color.Transparent)
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (offsetX.value > sheetWidth.value * 0.5f) {
+                                    notifyVisible = false
+                                    isNotify = false
+                                    profileVisible = false
+                                    isProfile = false
+                                    cartVisible = false
+                                    isCart = false
+                                } else {
+                                    viewmodel.viewModelScope.launch {
 
-                                    offsetX.animateTo(0f)
+                                        offsetX.animateTo(0f)
+                                    }
+                                }
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                viewmodel.viewModelScope.launch {
+                                    offsetX.snapTo(
+                                        (offsetX.value + dragAmount).coerceIn(
+                                            0f,
+                                            sheetWidth.value
+                                        )
+                                    )
                                 }
                             }
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            viewmodel.viewModelScope.launch {
-                                offsetX.snapTo(
-                                    (offsetX.value + dragAmount).coerceIn(
-                                        0f,
-                                        sheetWidth.value
-                                    )
-                                )
-                            }
-                        }
-                    )
+                        )
+                    }
+            ) {
+                if (isNotify)
+                    NotificationNavigationDrawer()
+                if (isProfile)
+                    ProfileNavigationDrawer(viewmodel, navController)
+                if (isCart) {
+                    CartDrawer(viewmodel,navController)
                 }
-        ) {
-            if(isNotify)
-                 NotificationNavigationDrawer()
-            if(isProfile)
-                ProfileNavigationDrawer(viewmodel,navController)
             }
-    }
-    }
 
+
+        }
+    }
+}
 
 
 @Composable
