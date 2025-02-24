@@ -1,12 +1,16 @@
 package com.example.fooddelivery.Home
 
+import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +36,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +46,10 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
@@ -73,6 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,10 +104,16 @@ import kotlin.math.roundToInt
 
 
 @Composable
-fun NavigationItem(data :NavigationDrawerItem, fontsize : Int){
+fun NavigationItem(data :NavigationDrawerItem, fontsize : Int, onClick : (String)->Unit){
     Column {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }) {
+                    onClick(data.title)
+                },
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -482,10 +497,31 @@ fun MyOrders(){
     }
 }
 
+@Composable
+fun FavoritesIcon(enable :Boolean, onClick: (Boolean) -> Unit){
+    Box(modifier = Modifier
+        .size(25.dp)
+        .clip(RoundedCornerShape(10.dp))
+        .background(Color.White)
+        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+            onClick(!enable)
+        }, contentAlignment = Alignment.Center) {
+        Crossfade(targetState = enable, label = "transition") {state->
+            Image(
+                painter = painterResource(if (state) R.drawable.filled_heart else R.drawable.heart_icon),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
 
 @Composable
-fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
+fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel, navController: NavController) {
     val baseUrl = viewmodel.homeData.value?.base_image_url
+    var favorites by remember {  mutableStateOf(false) }
+    Log.d("pathris", viewmodel.recentlyViewed.toString())
     Scaffold (
         topBar = {
             Column(
@@ -495,12 +531,14 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
                     .background(
                         color = colorResource(R.color.yellow_base)
                     )
+                    .padding(top = 20.dp)
             ) {
                 Row (
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .padding(start = 35.dp)
-                        .padding(vertical = 40.dp)
+                        .padding(start = 15.dp)
+                        .padding(vertical = 40.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ){
                     Icon(
                         Icons.Filled.KeyboardArrowLeft,
@@ -518,31 +556,48 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
                             .wrapContentWidth(),
 
                         )
-                    Image(
-                        painter = painterResource(R.drawable.closed_heart),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    FavoritesIcon(enable = favorites){enable->
+                        favorites = enable
+                        if(favorites){
+                            menuItem?.id?.let {
+                                viewmodel.addFavorites(it)
+
+                            }
+                        }
+                        if(!favorites){
+                            menuItem?.id?.let {
+                                viewmodel.removeFavorites(it)
+                            }
+                        }
+                    }
                     Box(
                         modifier = Modifier
-                            .padding(start = 10.dp)
-                            .width(30.dp)
-                            .height(16.dp)
+                            .width(32.dp)
+                            .height(25.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(color = colorResource(R.color.orange_base)),
-                        contentAlignment = Alignment.Center
+                            .background(color = colorResource(R.color.orange_base))
+                            .padding(horizontal = 4.dp),
+                        contentAlignment = Alignment.CenterStart
 
                     ) {
                         Text(
                             "5 ⭐",
                             color = colorResource(R.color.white),
-                            fontSize = 10.sp
+                            fontSize = 10.sp,
+                            modifier = Modifier.fillMaxSize(),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
 
             }
         },
+        bottomBar = {
+            BottomBar(){page->
+                    navController.navigate("Main/${page}")
+                }
+
+        }
 
     ) {
         Column(
@@ -559,7 +614,11 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Image(
-                    painter = if(menuItem?.image_url.isNullOrEmpty().not()) rememberAsyncImagePainter(baseUrl+ menuItem?.image_url) else painterResource(R.drawable.pizza) ,
+                    painter = if (menuItem?.image_url.isNullOrEmpty()
+                            .not()
+                    ) rememberAsyncImagePainter(baseUrl + menuItem?.image_url) else painterResource(
+                        R.drawable.pizza
+                    ),
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -585,7 +644,7 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
                         fontWeight = FontWeight.W600
                     )
                     Text(
-                        "₹${ (menuItem?.price ?:0) + 20}",
+                        "₹${(menuItem?.price ?: 0) + 20}",
                         color = colorResource(R.color.yellow_base),
                         textDecoration = TextDecoration.LineThrough,
                         fontSize = 16.sp,
@@ -600,61 +659,106 @@ fun  ProductDetailsPage(menuItem: MenuItem?, viewmodel: MainViewmodel) {
                         .background(Color(0xffffd8c7))
                 )
                 Text(
-                    menuItem?.name ?:"",
+                    menuItem?.name ?: "",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown)
                 )
                 Text(
-                    menuItem?.description?:"",
+                    menuItem?.description ?: "",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W400, color = colorResource(R.color.font_brown)
                 )
-                Text(
-                    "Personal Portion",
-                    modifier = Modifier.padding(top = 20.dp),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.W600, color = colorResource(R.color.font_brown)
-                )
 
-
-                val pizzaSizes = listOf("Small (4 slides)", "Medium (8 slides)", "Jumbo (10 slides)")
-                var selectedSize by remember { mutableStateOf(pizzaSizes[0]) }
-
-                    pizzaSizes.forEach { size ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(30.dp)
-                                .clickable { selectedSize = size }
-
-                        ) {
-                            Text(
-                                text = size,
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
-                            RadioButton(
-                                selected = (size == selectedSize),
-                                onClick = { selectedSize = size },
-                                colors = RadioButtonDefaults.colors(selectedColor = colorResource(R.color.orange_base), unselectedColor = colorResource(R.color.orange_base))
-                            )
-
-                        }
-
-
-                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
-                ){
-                    Text("Add to Cart", fontWeight = FontWeight.W600, color = Color.White,modifier = Modifier
-                        .clip(
-                            RoundedCornerShape(12.dp)
-                        )
-                        .background(color = colorResource(R.color.orange_base))
-                        .padding(horizontal = 16.dp, vertical = 10.dp))
+                ) {
+                    Text(
+                        "Add to Cart",
+                        fontWeight = FontWeight.W600,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(
+                                RoundedCornerShape(12.dp)
+                            )
+                            .background(color = colorResource(R.color.orange_base))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            val recentlyViewed = viewmodel.getMenuItemsByIds(viewmodel.recentlyViewed)
+            if (recentlyViewed.size > 2) {
+                Text(
+                    "Recently Viewed",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                    color = colorResource(R.color.font_brown),
+                    modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .padding(top = 20.dp, bottom = 35.dp)
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(15.dp)
+                ) {
+                    val recentlyViewed = viewmodel.getMenuItemsByIds(viewmodel.recentlyViewed)
+                    val baseUrl = viewmodel.homeData.value?.base_image_url
+                    val recentlyViewedSize = recentlyViewed?.size ?: 0
+                    recentlyViewed?.forEachIndexed { index, it ->
+                            if (it.id != menuItem?.id) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(
+                                            start = if (index == 0) 35.dp else 0.dp,
+                                            end = if (index == recentlyViewedSize - 1) 35.dp else 0.dp
+                                        )
+                                        .height(108.dp)
+                                        .width(108.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            val gson = Gson()
+                                            val data = gson.toJson(it)
+                                            val encodedData = URLEncoder.encode(
+                                                data,
+                                                StandardCharsets.UTF_8.toString()
+                                            )
+                                            navController.navigate("details/${encodedData}")
+                                        },
+                                    contentAlignment = Alignment.BottomEnd
+                                ) {
+                                    Image(
+                                        rememberAsyncImagePainter(baseUrl + it?.image_url),
+                                        contentDescription = null,
+                                        modifier = Modifier.matchParentSize(),
+                                        contentScale = ContentScale.FillBounds
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(bottom = 12.dp)
+                                            .width(40.dp)
+                                            .height(20.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(color = colorResource(R.color.orange_base))
+                                            .padding(horizontal = 4.dp)
+                                            .padding(bottom = 4.dp),
+                                        contentAlignment = Alignment.Center
+
+                                    ) {
+                                        Text(
+                                            "₹ ${it?.price}",
+                                            color = colorResource(R.color.white),
+                                            fontSize = 10.sp,
+                                            modifier = Modifier.fillMaxSize(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
                 }
             }
         }
@@ -968,7 +1072,7 @@ fun OrderConfirmPage(){
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BestSellersPage(viewmodel: MainViewmodel) {
+fun BestSellersPage(viewmodel: MainViewmodel, navController: NavController) {
     BottomSheetScaffold(
         content = {
             Column(
@@ -1036,7 +1140,7 @@ fun BestSellersPage(viewmodel: MainViewmodel) {
                     ) {
                             data.forEach {
                                 item {
-                                    BestSellersItem(baseUrl ?: "", it)
+                                    BestSellersItem(baseUrl ?: "", it, navController)
                                 }
                             }
 
@@ -1048,7 +1152,9 @@ fun BestSellersPage(viewmodel: MainViewmodel) {
 }
 
 @Composable
-fun FavoritesPage(){
+fun FavoritesPage(viewmodel: MainViewmodel,navController: NavController){
+    val favoritesList = viewmodel.favoritesList
+    val  baseurl = viewmodel.homeData.value?.base_image_url
     Scaffold (
         topBar = {
             Column(
@@ -1110,9 +1216,14 @@ fun FavoritesPage(){
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     columns = GridCells.Fixed(2),
                 ) {
-                    items(10) {
-                        FavoriteItem()
-                    }
+                    viewmodel.getMenuItemsByIds(viewmodel.favoritesList).forEach {
+                            item {
+                                if (baseurl != null) {
+                                    FavoriteItem(it, baseurl, navController)
+                                }
+                            }
+                        }
+
                 }
             }
 
@@ -1122,7 +1233,7 @@ fun FavoritesPage(){
     }
 }
 @Composable
-fun FavoriteItem(){
+fun FavoriteItem(data : MenuItem, baseUrl: String,navController: NavController){
     Column(
         modifier = Modifier
             .width(150.dp)
@@ -1133,11 +1244,24 @@ fun FavoriteItem(){
             modifier = Modifier
                 .size(150.dp)
                 .clip(RoundedCornerShape(12.dp))
+                .clickable (
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ){
+                    val gson = Gson()
+                    val myData = gson.toJson(data)
+                    val encodedData = URLEncoder.encode(
+                        myData,
+                        StandardCharsets.UTF_8.toString()
+                    )
+                    navController.navigate("details/${encodedData}")
+                }
         ) {
 
             Image(
-                painter = painterResource(R.drawable.burger),
+                painter = rememberAsyncImagePainter(baseUrl +data.image_url),
                 contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.FillBounds
             )
             Row(
@@ -1174,13 +1298,13 @@ fun FavoriteItem(){
                 }
             }
         }
-        Text("Chicken Burger", fontSize = 16.sp, color = colorResource(R.color.orange_base), textAlign = TextAlign.Center, modifier = Modifier.padding(top =12.dp))
-        Text("Lorem ipsum dolor sit amet, consectetur.", fontSize = 12.sp, color = colorResource(R.color.font_brown), modifier = Modifier.padding(start =15.dp,end =10.dp, top =5.dp))
+        Text(data?.name?:"", fontSize = 16.sp, color = colorResource(R.color.orange_base), textAlign = TextAlign.Center, modifier = Modifier.padding(top =12.dp))
+        Text(data?.description ?:"", fontSize = 12.sp, color = colorResource(R.color.font_brown), modifier = Modifier.padding(start =15.dp,end =10.dp, top =5.dp),textAlign = TextAlign.Center)
     }
 }
 
 @Composable
-fun BestSellersItem(baseUrl :String,item: MenuItem?) {
+fun BestSellersItem(baseUrl :String,item: MenuItem?, navController: NavController) {
     Column(
         modifier = Modifier
             .width(150.dp)
@@ -1190,7 +1314,19 @@ fun BestSellersItem(baseUrl :String,item: MenuItem?) {
         Box(
             modifier = Modifier
                 .size(150.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    val gson = Gson()
+                    val data = gson.toJson(item)
+                    val encodedData = URLEncoder.encode(
+                        data,
+                        StandardCharsets.UTF_8.toString()
+                    )
+                    navController.navigate("details/${encodedData}")
+                },
         ) {
 
             Image(
@@ -1318,14 +1454,16 @@ fun BestSellersItem(baseUrl :String,item: MenuItem?) {
         }
     }
 }
+
 @Composable
-fun FaqPage(){
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(color = colorResource(R.color.font2))
-        .padding(horizontal = 35.dp)
-        .padding(top = 30.dp)
-        ,
+fun FaqPage(viewmodel: MainViewmodel) {
+    var expandedIndex by remember { mutableStateOf(-1) } // Track expanded item
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color = colorResource(R.color.font2))
+            .padding(horizontal = 35.dp, vertical = 30.dp)
     ) {
         Box(
             modifier = Modifier
@@ -1338,10 +1476,7 @@ fun FaqPage(){
                 modifier = Modifier.matchParentSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "Search",
-                    modifier = Modifier.padding(start = 12.dp)
-                )
+                Text("Search", modifier = Modifier.padding(start = 12.dp))
                 Spacer(modifier = Modifier.weight(1f))
                 Box(
                     modifier = Modifier
@@ -1358,44 +1493,60 @@ fun FaqPage(){
                 }
             }
         }
-        Spacer(modifier = Modifier
-            .padding(top = 20.dp)
-            .height(1.dp)
-            .fillMaxWidth()
-            .background(Color(0xffffd8c7)))
-        Row (
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 20.dp)
-        ){
-
-            Text(
-                "Lorem ipsum dolor sit amet?",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.W600,
-                color = colorResource(R.color.font_brown),
-
-            )
-            Spacer(modifier =Modifier.weight(1f))
-            Icon(
-                Icons.Filled.KeyboardArrowDown,
-                contentDescription = null,
-                tint = colorResource(R.color.orange_base)
-            )
-        }
-        Spacer(modifier = Modifier
-            .padding(top = 20.dp)
-            .height(1.dp)
-            .fillMaxWidth()
-            .background(Color(0xffffd8c7)))
-        Text(
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent pellentesque congue lorem, vel tincidunt tortor placerat a. Proin ac diam quam. Aenean in sagittis magna, ut feugiat diam.",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = colorResource(R.color.font_brown),
-            modifier = Modifier.padding(top =20.dp)
-
+        Spacer(
+            modifier = Modifier
+                .padding(top = 20.dp)
+                .height(1.dp)
+                .fillMaxWidth()
+                .background(Color(0xffffd8c7))
         )
-}
+
+        viewmodel.faqData.value?.faqs?.forEachIndexed { index, faq ->
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            expandedIndex = if (expandedIndex == index) -1 else index
+                        }
+                        .padding(vertical = 15.dp)
+                ) {
+                    Text(
+                        faq?.question ?: "",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W600,
+                        color = colorResource(R.color.font_brown),
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = if (expandedIndex == index) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = colorResource(R.color.orange_base)
+                    )
+                }
+
+                AnimatedVisibility(visible = expandedIndex == index) {
+                    Text(
+                        faq?.answer ?: "",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorResource(R.color.font_brown),
+                        modifier = Modifier
+                            .padding(vertical = 10.dp)
+                            .animateContentSize()
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier
+                        .height(1.dp)
+                        .fillMaxWidth()
+                        .background(Color(0xffffd8c7))
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1445,130 +1596,121 @@ fun ContactUsItem(title:String, @DrawableRes id :Int){
         )
     }
 }
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HelpCenter(){
-    Scaffold (
+fun HelpCenter(viewmodel: MainViewmodel) {
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = {2}) // Manage pager state
+    val tabs = listOf("FAQ", "Contact Us")
+
+    Scaffold(
         topBar = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentHeight()
-                    .background(
-                        color = colorResource(R.color.yellow_base)
-                    )
+                    .background(color = colorResource(R.color.yellow_base))
             ) {
-            Row (
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 35.dp, top =20.dp)
-            ){
-                Icon(
-                    Icons.Filled.KeyboardArrowLeft,
-                    contentDescription = null,
-                    tint = colorResource(R.color.orange_base)
-                )
-                Column(
-                    modifier = Modifier
-                        .wrapContentHeight()
-                        .fillMaxWidth()
-                        .padding(bottom = 20.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 35.dp, top = 20.dp)
                 ) {
-
-                    Text(
-                        "Help Center",
-                        fontSize = 28.sp,
-                        color = colorResource(R.color.font2),
-                        fontWeight = FontWeight.W700,
+                    Icon(
+                        Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = colorResource(R.color.orange_base)
+                    )
+                    Column(
                         modifier = Modifier
-                            .padding(horizontal = 35.dp)
-                            .padding(top = 16.dp)
-                    )
-                    Text(
-                        "how can we help you?",
-                        fontSize = 13.sp,
-                        color = colorResource(R.color.orange_base),
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 35.dp)
-                    )
-
-
+                            .wrapContentHeight()
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp)
+                    ) {
+                        Text(
+                            "Help Center",
+                            fontSize = 28.sp,
+                            color = colorResource(R.color.font2),
+                            fontWeight = FontWeight.W700,
+                            modifier = Modifier
+                                .padding(horizontal = 35.dp)
+                                .padding(top = 16.dp)
+                        )
+                        Text(
+                            "How can we help you?",
+                            fontSize = 13.sp,
+                            color = colorResource(R.color.orange_base),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 35.dp)
+                        )
+                    }
                 }
             }
-
-            }
         },
-    ) {
+    ) { paddingValues ->
         Column(
             modifier = Modifier
-                .padding(it)
+                .padding(paddingValues)
                 .fillMaxSize()
                 .background(colorResource(R.color.yellow_base))
                 .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
                 .background(Color.White)
-                .verticalScroll(rememberScrollState())
-            ,
         ) {
+            val coroutineScope = rememberCoroutineScope()
+
             Column(
                 modifier = Modifier.padding(top = 35.dp, start = 35.dp, end = 35.dp)
             ) {
                 TabRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight(),
-                    selectedTabIndex = 0,
-                    indicator = {
-                        TabRowDefaults.Indicator(
-                            color = Color.Transparent
+                    modifier = Modifier.fillMaxWidth(),
+                    selectedTabIndex = pagerState.currentPage,
+                    indicator = { TabRowDefaults.Indicator(color = Color.Transparent) }
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            content = {
+                                Box(
+                                    modifier = Modifier
+                                        .height(28.dp)
+                                        .padding(horizontal = 20.dp)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (pagerState.currentPage == index)
+                                                colorResource(R.color.orange_base)
+                                            else
+                                                Color.LightGray
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        title,
+                                        color = Color.White,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
                         )
                     }
-                ) {
-                    Tab(
-                        selected = true,
-                        onClick = {
-
-                        },
-                        content = {
-                            Box(
-                                modifier = Modifier
-                                    .height(28.dp)
-                                    .padding(horizontal = 20.dp)
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(color = colorResource(R.color.orange_base)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("FAQ", color = Color.White, fontSize = 18.sp)
-                            }
-                        }
-                    )
-
-                    Tab(
-                        selected = true,
-                        onClick = {
-
-                        },
-                        content = {
-                            Box(
-                                modifier = Modifier
-                                    .height(28.dp)
-                                    .padding(horizontal = 20.dp)
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(color = colorResource(R.color.orange_base)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Contact us", color = Color.White, fontSize = 18.sp)
-                            }
-                        }
-                    )
                 }
             }
 
-
-
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> FaqPage(viewmodel =viewmodel)
+                    1 -> ContactUsPage()
+                }
             }
         }
-
     }
+}
 
 
 
@@ -1629,7 +1771,9 @@ fun NotificationNavigationDrawer(){
 
         for(i in noficationItems) {
             Column {
-                NavigationItem(i,18)
+                NavigationItem(i,18){
+
+                }
                 Spacer(
                     modifier = Modifier
                         .padding(top = 14.dp)
@@ -1642,7 +1786,45 @@ fun NotificationNavigationDrawer(){
     }
 }
 @Composable
-fun ProfileNavigationDrawer(){
+fun ProfileNavigationDrawer(viewmodel: MainViewmodel, navController: NavController){
+    var alertVisible by remember { mutableStateOf(false) }
+    if(alertVisible) {
+        AlertDialog(
+            onDismissRequest = {
+                alertVisible = false
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewmodel.logout()
+                        navController.navigate("login")
+                        alertVisible = false
+
+                    }
+                ) {
+                    Text("Yes",
+                        modifier = Modifier
+                            .wrapContentWidth()
+                    )
+                }
+
+            },
+            dismissButton = {
+
+                Button(
+                    {
+                        alertVisible = false
+                    },
+                    modifier = Modifier.wrapContentWidth()
+                ){
+                    Text("Cancel")
+                }
+            },
+            title = {
+                Text("Do you want to Logout ?")
+            }
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1656,7 +1838,7 @@ fun ProfileNavigationDrawer(){
         Column(
             modifier = Modifier.padding(start = 16.dp)
         ){
-            Text("Bathri Narayanan", fontSize = 24.sp, color = colorResource(R.color.font2))
+            Text(viewmodel.username?:"", fontSize = 24.sp, color = colorResource(R.color.font2))
             Text("pathrinarayananmdu@gmail.com", fontSize = 16.sp, color = colorResource(R.color.yellow_2))
         }
         val profileItems  = listOf(
@@ -1672,7 +1854,9 @@ fun ProfileNavigationDrawer(){
 
         for(i in profileItems) {
             Column {
-                NavigationItem(i,24)
+                NavigationItem(i,24){
+
+                }
                 Spacer(
                     modifier = Modifier
                         .padding(top = 14.dp)
@@ -1683,55 +1867,39 @@ fun ProfileNavigationDrawer(){
             }
         }
         Spacer(modifier = Modifier.weight(1f))
-        NavigationItem(NavigationDrawerItem(R.drawable.log_out_icon,"Log Out"),24)
+        NavigationItem(NavigationDrawerItem(R.drawable.log_out_icon,"Log Out"),24){
+            alertVisible = true
+        }
         Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
 
 @Composable
-fun MainPage(navController: NavController, viewmodel: MainViewmodel) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
-    val coroutineScope = rememberCoroutineScope() // ✅ Remember a coroutine scope
+fun MainPage(navController: NavController, viewmodel: MainViewmodel, currentIndex : Int?=0) {
+    var currentPageIndex by remember { mutableStateOf(currentIndex) }
 
     Scaffold(
         bottomBar = {
-            BottomBar { index ->
-                coroutineScope.launch {
-                    pagerState.animateScrollToPage(index) // ✅ Smooth scrolling
-                }
+            BottomBar() { page ->
+                currentPageIndex = page
             }
         }
     ) { paddingValues ->
         Column(modifier = Modifier
             .padding(paddingValues)
             .fillMaxSize()) {
-            HorizontalPager(
-                modifier = Modifier.wrapContentSize(),
-                state = pagerState
-            ) { page ->
-                when (page) {
-                    0 -> HomeCV(viewmodel,navController)
-                    1 -> BestSellersPage(viewmodel)
-                    2 -> FavoritesPage()
-                    3 -> MyOrders()
-                    4 -> HelpCenter()
-                }
+            when(currentPageIndex){
+                0-> HomeCV(viewmodel, navController)
+                1-> BestSellersPage(viewmodel, navController)
+                2-> FavoritesPage(viewmodel,navController)
+                3-> MyOrders()
+                4-> HelpCenter(viewmodel)
+
             }
         }
     }
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }
-            .collect { page ->
-                when (page) {
-                    0 -> navController.navigate("home")
-                    1 -> navController.navigate("bestSellers")
-                    2 -> navController.navigate("favorites")
-                    3 -> navController.navigate("myOrders")
-                    4 -> navController.navigate("help")
-                }
-            }
-    }
+
 }
 
 
@@ -1965,8 +2133,11 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable {
                                         val gson = Gson()
-                                        val data =gson.toJson(it)
-                                        val encodedData = URLEncoder.encode(data, StandardCharsets.UTF_8.toString())
+                                        val data = gson.toJson(it)
+                                        val encodedData = URLEncoder.encode(
+                                            data,
+                                            StandardCharsets.UTF_8.toString()
+                                        )
                                         navController.navigate("details/${encodedData}")
                                     },
                                 contentAlignment = Alignment.BottomEnd
@@ -2028,7 +2199,18 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
                                         .padding(top = 16.dp)
                                         .height(140.dp)
                                         .width(160.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable (
+                                            indication = null, interactionSource = remember { MutableInteractionSource() }
+                                        ){
+                                            val gson = Gson()
+                                            val data = gson.toJson(it)
+                                            val encodedData = URLEncoder.encode(
+                                                data,
+                                                StandardCharsets.UTF_8.toString()
+                                            )
+                                            navController.navigate("details/${encodedData}")
+                                        },
                                     contentAlignment = Alignment.BottomEnd
                                 ) {
                                     Image(
@@ -2039,20 +2221,23 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
                                     )
 
                                     Box(
-                                        contentAlignment = Alignment.TopCenter,
                                         modifier = Modifier
                                             .padding(bottom = 12.dp)
                                             .width(40.dp)
-                                            .height(16.dp)
+                                            .height(20.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(colorResource(R.color.orange_base))
+                                            .background(color = colorResource(R.color.orange_base))
+                                            .padding(horizontal = 4.dp)
+                                            .padding(bottom = 4.dp),
+                                        contentAlignment = Alignment.Center
+
                                     ) {
                                         Text(
-                                            "₹ ${it.price}",
+                                            "₹ ${it?.price}",
                                             color = colorResource(R.color.white),
                                             fontSize = 10.sp,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier =Modifier.fillMaxSize(),
+                                            textAlign = TextAlign.Center
                                         )
                                     }
 
@@ -2117,7 +2302,7 @@ fun HomeCV (viewmodel: MainViewmodel, navController: NavController){
             if(isNotify)
                  NotificationNavigationDrawer()
             if(isProfile)
-                ProfileNavigationDrawer()
+                ProfileNavigationDrawer(viewmodel,navController)
             }
     }
     }
@@ -2223,7 +2408,7 @@ fun FoodItems(@DrawableRes img :Int, name :String){
 fun HomeSplashScreen(navController: NavController, viewmodel: MainViewmodel) {
     LaunchedEffect(viewmodel.homeData.value) {
         if(viewmodel.homeData.value!=null) {
-            navController.navigate("home"){
+            navController.navigate("Main/${0}"){
                 popUpTo("splash"){inclusive= true}
             }
         }

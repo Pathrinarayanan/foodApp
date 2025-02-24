@@ -6,6 +6,7 @@ plugins {
     id("kotlin-parcelize")
     id("kotlin-kapt")
     kotlin("plugin.serialization") version "1.9.0"
+    alias(libs.plugins.google.gms.google.services)
 
 }
 
@@ -65,6 +66,11 @@ android {
 dependencies {
 
     implementation(libs.dagger.hilt.android)
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.firebase.firestore)
     kapt(libs.dagger.hilt)
     implementation(libs.androidx.core.ktx)
     implementation(libs.dagger.plugin)

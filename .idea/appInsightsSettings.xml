@@ -22,10 +22,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.fooddelivery" />
+                  <option name="mobileSdkAppId" value="1:934736428826:android:1b210eaa355c05e3fb36a3" />
+                  <option name="projectId" value="bathri-f531b" />
+                  <option name="projectNumber" value="934736428826" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

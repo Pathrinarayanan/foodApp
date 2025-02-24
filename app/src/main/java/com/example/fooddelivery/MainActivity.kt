@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -35,17 +34,24 @@ import com.example.fooddelivery.Home.model.FlowData
 import com.example.fooddelivery.Home.model.MenuItem
 import com.example.fooddelivery.authentication.ui.BottomBar
 import com.example.fooddelivery.authentication.ui.Login
+import com.example.fooddelivery.authentication.ui.SignUp
 import com.example.fooddelivery.onboarding.ui.OnBoardingPage
+import com.example.fooddelivery.repository.FirebaseRepository
 import com.example.fooddelivery.ui.theme.FoodDeliveryTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-     val  viewmodel: MainViewmodel by viewModels()
+    val viewmodel: MainViewmodel by viewModels()
+
+    @Inject
+    lateinit var firebaseRepository: FirebaseRepository
+
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,94 +59,106 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = resources.getColor(R.color.yellow_base)
         setContent {
             FoodDeliveryTheme {
-                val navController = rememberNavController()
-                val currentBackStackEntry = navController.currentBackStackEntryAsState()
-                Scaffold(modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        BottomBar(){page->
-                            when (page) {
-                                0 -> navController.navigate("home")
-                                1 -> navController.navigate("bestSellers")
-                                2 -> navController.navigate("favorites")
-                                3 -> navController.navigate("myOrders")
-                                4 -> navController.navigate("help")
-                            }
-                        }
-                    }
-
-                ) { innerPadding ->
-                    NavHost(startDestination = "splash", navController = navController, modifier = Modifier.padding(paddingValues = innerPadding) ) {
-                        composable("Main"){
-                            MainPage(navController,viewmodel)
-                        }
-                        composable("home") {
-                            HomeCV(viewmodel, navController)
-                        }
-                        composable("login") {
-                            Login()
-                        }
-                        composable("onboarding") {
-                            OnBoardingPage(navController)
-                        }
-                        composable("help") {
-                            HelpCenter()
-                        }
-                        composable("favorites") {
-                            FavoritesPage()
-                        }
-                        composable("myOrders") {
-                            MyOrders()
-                        }
-                        composable("bestSellers") {
-                            BestSellersPage(viewmodel)
-                        }
-                        composable("splash") {
-                            HomeSplashScreen(navController,viewmodel)
-                        }
-                        composable("details/{menuItem}", arguments = listOf(navArgument("menuItem") {type = NavType.StringType })){currentBackStackEntry->
-                            val menuItem = currentBackStackEntry.arguments?.getString("menuItem")
-
-                            val decodedMenu = URLDecoder.decode(menuItem, StandardCharsets.UTF_8.toString())
-                            val data = Json.decodeFromString<MenuItem>(decodedMenu ?:"")
-                            ProductDetailsPage(data,viewmodel)
-                        }
-
-                    }
-                }
-
+                FoodApp()
             }
+
         }
+        fetchData()
+        initObservers()
+
+    }
+
+    fun fetchData() {
         viewmodel.viewModelScope.launch {
             viewmodel.getHomePageData()
+            viewmodel.getFaqData()
+            viewmodel.fetchUsername()
+            viewmodel.fetchFavorites()
         }
-        initObservers()
     }
-    fun initObservers(){
+
+    fun initObservers() {
         viewmodel.viewModelScope.launch {
-            viewmodel.sharedFlow.collect{
-                when(it){
-                    is FlowData.Toast->{
+            viewmodel.sharedFlow.collect {
+                when (it) {
+                    is FlowData.Toast -> {
                         Toast.makeText(applicationContext, it.msg, Toast.LENGTH_SHORT).show()
                     }
                 }
-
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    @Composable
+    fun FoodApp() {
+        val navController = rememberNavController()
+            NavHost(
+                startDestination = if (firebaseRepository.firebaseAuth.currentUser == null) "login" else "splash",
+                navController = navController,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable("Main/{index}" , arguments =  listOf(navArgument("index"){
+                    type = NavType.StringType
+                })) {
+                    val index = it.arguments?.getString("index")
+                    var currentIndex  =0
+                    try {
+                        currentIndex = index?.toInt() ?:0
+                    }
+                    catch (e:Exception ){}
+                    MainPage(navController, viewmodel,currentIndex)
+                }
+                composable("home") {
+                    HomeCV(viewmodel, navController)
+                }
+                composable("login") {
+                    Login(viewmodel, navController)
+                }
+                composable("signup") {
+                    SignUp(viewmodel, navController)
+                }
+                composable("onboarding") {
+                    OnBoardingPage(navController)
+                }
+                composable("help") {
+                    HelpCenter(viewmodel)
+                }
+                composable("favorites") {
+                    FavoritesPage(viewmodel,navController)
+                }
+                composable("myOrders") {
+                    MyOrders()
+                }
+                composable("bestSellers") {
+                    BestSellersPage(viewmodel,navController)
+                }
+                composable("splash") {
+                    HomeSplashScreen(navController, viewmodel)
+                }
+                composable(
+                    "details/{menuItem}",
+                    arguments = listOf(navArgument("menuItem") {
+                        type = NavType.StringType
+                    })
+                ) { currentBackStackEntry ->
+                    val menuItem = currentBackStackEntry.arguments?.getString("menuItem")
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FoodDeliveryTheme {
-        Greeting("Android")
+                    val decodedMenu =
+                        URLDecoder.decode(menuItem, StandardCharsets.UTF_8.toString())
+                    val data = Json.decodeFromString<MenuItem>(decodedMenu ?: "")
+                    addRecentlyViewed(data.id, viewmodel)
+                    ProductDetailsPage(data, viewmodel,navController)
+                }
+
+            }
     }
+    fun addRecentlyViewed(newNumber: Int, viewmodel: MainViewmodel) {
+        if (newNumber in viewmodel.recentlyViewed) return
+
+        viewmodel.recentlyViewed = (listOf(newNumber) + viewmodel.recentlyViewed)
+            .distinct()
+            .take(5)
+            .toMutableList()
+    }
+
 }
