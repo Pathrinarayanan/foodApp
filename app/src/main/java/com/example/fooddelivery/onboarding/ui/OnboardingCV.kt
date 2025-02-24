@@ -158,7 +158,7 @@ fun OnBoardingPage(navController: NavController){
             ctaTexts[currentIndex],
             goNextPage = {
                 if(currentIndex == pages -1){
-                    navController.navigate("home")
+                    navController.navigate("login")
                 }
                 if( currentIndex <pages-1)
                     currentIndex+=1

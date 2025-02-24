@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
     fun FoodApp() {
         val navController = rememberNavController()
             NavHost(
-                startDestination = if (firebaseRepository.firebaseAuth.currentUser == null) "login" else "checkout",
+                startDestination = if (firebaseRepository.firebaseAuth.currentUser == null) "onboarding" else "splash",
                 navController = navController,
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
                 }
                 composable("payment") {
                     PaymentPage( viewmodel,navController){
-                        showNotification(applicationContext, "Your Order is on the way! ", "Thank you for choosing your order, will reach in 25 minutes")
+                        showNotification(applicationContext, "Your Order is on the way! ", "Thank you for choosing us, your order will reach in 25 minutes")
                     }
                 }
                 composable("orderSuccess") {

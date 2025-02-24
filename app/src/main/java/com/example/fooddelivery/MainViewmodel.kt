@@ -116,7 +116,7 @@ class MainViewmodel @Inject constructor(private val repository: RetrofitReposito
            firebaseRepository.firebaseAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(
                 OnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        navController.navigate("home")
+                        navController.navigate("Main/${0}")
                         viewModelScope.launch {
                             _sharedFlow.emit(FlowData.Toast("success"))
                         }
@@ -175,7 +175,7 @@ class MainViewmodel @Inject constructor(private val repository: RetrofitReposito
                                             viewModelScope.launch {
                                                 _sharedFlow.emit(FlowData.Toast("success"))
                                             }
-                                            navController.navigate("home")
+                                            navController.navigate("Main/${0}")
                                         }
                                         else{
                                             viewModelScope.launch {
