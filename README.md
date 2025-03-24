@@ -3,7 +3,7 @@
 🚀 A complete full-stack food delivery app built with Kotlin and Jetpack Compose, integrating Firebase Authentication, API handling, state management, and Clean Architecture to deliver a seamless eCommerce experience.
 
 ## 📹 Demo Video
-[https://youtube.com/shorts/NlXgqlpsCNU?feature=share](#)
+[https://youtube.com/shorts/NlXgqlpsCNU](#)
 
 ---
 
