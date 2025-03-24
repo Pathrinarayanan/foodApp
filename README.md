@@ -37,8 +37,8 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/FoodDeliveryApp.git
-   cd FoodDeliveryApp
+   git clone https://github.com/Pathrinarayanan/foodapp.git
+   cd foodApp
    ```
 
 2. Open the project in **Android Studio**.
